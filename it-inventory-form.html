@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Инвентаризация ИТ-оборудования</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4"></script>
+<style>
+  :root{
+    --bg:#0e1726;
+    --panel:#16233a;
+    --panel-2:#1d2e4a;
+    --line:#2a3c5c;
+    --ink:#eef3fb;
+    --muted:#93a4c2;
+    --accent:#3ea6ff;
+    --accent-ink:#04111f;
+    --ok:#34c98a;
+    --danger:#ff6b6b;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:
+      radial-gradient(1100px 500px at 80% -10%, #1b2f52 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:32px 20px 80px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:28px}
+  .brand{font-weight:700;letter-spacing:.3px;font-size:15px;color:var(--accent)}
+  .admin-link{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:7px 14px;border-radius:999px}
+  .admin-link:hover{color:var(--ink);border-color:var(--accent)}
+  h1{font-size:28px;margin:0 0 10px;font-weight:700;letter-spacing:-.4px}
+  .lead{color:var(--muted);font-size:15px;margin:0 0 28px;max-width:600px}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 22px 24px;
+    margin-bottom:18px;
+  }
+  .card h2{
+    font-size:13px;text-transform:uppercase;letter-spacing:1.2px;
+    color:var(--accent);margin:0 0 18px;font-weight:700;
+    display:flex;align-items:center;gap:10px;
+  }
+  .field{margin-bottom:16px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:600}
+  input[type=text],input[type=email],select,textarea{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:10px;padding:11px 13px;font-size:15px;
+    font-family:inherit;transition:border-color .15s;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  textarea{resize:vertical;min-height:80px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  .toggle{display:flex;gap:8px;margin-bottom:4px}
+  .toggle button{
+    flex:1;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);
+    padding:9px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;
+  }
+  .toggle button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .toggle button.on-no{background:var(--panel-2);color:var(--ink);border-color:var(--accent)}
+  .device-body{margin-top:16px}
+  .device-body.hidden{display:none}
+  .filebox{
+    border:1.5px dashed var(--line);border-radius:10px;padding:14px;text-align:center;
+    color:var(--muted);font-size:13px;cursor:pointer;background:var(--panel-2);
+  }
+  .filebox:hover{border-color:var(--accent)}
+  .filebox.has{border-color:var(--ok);color:var(--ok)}
+  .filebox input{display:none}
+  .hint{font-size:12px;color:var(--muted);margin-top:5px}
+  .submit{
+    width:100%;background:var(--accent);color:var(--accent-ink);border:none;
+    padding:15px;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;
+    font-family:inherit;margin-top:8px;
+  }
+  .submit:hover{filter:brightness(1.08)}
+  .submit:disabled{opacity:.6;cursor:not-allowed}
+  .msg{padding:13px 16px;border-radius:10px;margin-bottom:18px;font-size:14px;display:none}
+  .msg.ok{background:rgba(52,201,138,.12);border:1px solid var(--ok);color:var(--ok);display:block}
+  .msg.err{background:rgba(255,107,107,.12);border:1px solid var(--danger);color:var(--danger);display:block}
+  .config-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;line-height:1.6}
+  .config-note code{background:var(--panel);padding:2px 6px;border-radius:5px;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">Engineering Services · IT</div>
+    <a class="admin-link" href="#" id="adminLink">Админ-панель</a>
+  </header>
+
+  <h1>Инвентаризация ИТ-оборудования</h1>
+  <p class="lead">Просим заполнить сведения о ноутбуках и мониторах, которыми вы пользуетесь. Если устройство отсутствует — выберите «Нет». Для каждого имеющегося устройства загрузите фотографию наклейки с серийным номером.</p>
+
+  <div class="msg" id="msg"></div>
+
+  <form id="form">
+    <div class="card">
+      <h2>Сотрудник</h2>
+      <div class="field"><label>ФИО *</label><input type="text" id="fio" required></div>
+      <div class="grid2">
+        <div class="field"><label>Должность</label><input type="text" id="position"></div>
+        <div class="field"><label>Отдел / проект</label><input type="text" id="dept"></div>
+      </div>
+      <div class="field"><label>Офис / город</label><input type="text" id="office"></div>
+    </div>
+
+    <!-- device blocks injected here -->
+    <div id="devices"></div>
+
+    <div class="card">
+      <h2>Комментарий</h2>
+      <div class="field"><textarea id="comment" placeholder="Любые уточнения по оборудованию"></textarea></div>
+    </div>
+
+    <button type="submit" class="submit" id="submitBtn">Отправить</button>
+  </form>
+
+  <p class="config-note">
+    Перед использованием задайте <code>SUPABASE_URL</code> и <code>SUPABASE_ANON_KEY</code> в начале скрипта.<br>
+    Таблица: <code>inventory</code> · бакет хранилища: <code>serial-photos</code>
+  </p>
+</div>
+
+<script>
+/* ============================================================
+   НАСТРОЙКА SUPABASE — заполните своими значениями
+   (Project Settings → API в панели Supabase)
+   ============================================================ */
+const SUPABASE_URL = "https://wcbntdopwrjhzwpqgocw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjYm50ZG9wd3JqaHp3cHFnb2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDExOTksImV4cCI6MjA5ODAxNzE5OX0.JOqz_6Gf2ItdS1rml20fX-fSo6LMNHRHpRah8g9nMoA";
+
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---- блоки устройств (как у коллеги: 2 ноутбука + 2 монитора) ---- */
+const DEVICES = [
+  {key:"laptop1",  title:"Ноутбук №1",  label:"Есть ноутбук №1?"},
+  {key:"laptop2",  title:"Ноутбук №2",  label:"Есть ноутбук №2?"},
+  {key:"monitor1", title:"Монитор №1",  label:"Есть монитор №1?"},
+  {key:"monitor2", title:"Монитор №2",  label:"Есть монитор №2?"},
+];
+
+const state = {}; // key -> {present:bool, file:File|null}
+
+const devContainer = document.getElementById("devices");
+DEVICES.forEach(d=>{
+  state[d.key] = {present:false, file:null};
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `
+    <h2>${d.title}</h2>
+    <div class="field">
+      <label>${d.label}</label>
+      <div class="toggle" data-key="${d.key}">
+        <button type="button" data-v="yes">Да</button>
+        <button type="button" data-v="no" class="on-no">Нет</button>
+      </div>
+    </div>
+    <div class="device-body hidden" id="body-${d.key}">
+      <div class="grid2">
+        <div class="field"><label>Производитель / модель</label><input type="text" data-f="model" data-k="${d.key}"></div>
+        <div class="field"><label>Серийный номер</label><input type="text" data-f="serial" data-k="${d.key}"></div>
+      </div>
+      <div class="field">
+        <label>Фото наклейки с серийным номером *</label>
+        <label class="filebox" id="fb-${d.key}">
+          <span class="fb-text">Нажмите, чтобы выбрать фото</span>
+          <input type="file" accept="image/*" data-photo="${d.key}">
+        </label>
+        <div class="hint">JPG/PNG, фото наклашки с S/N устройства</div>
+      </div>
+    </div>`;
+  devContainer.appendChild(card);
+});
+
+/* toggle Да/Нет */
+devContainer.addEventListener("click", e=>{
+  const btn = e.target.closest(".toggle button");
+  if(!btn) return;
+  const key = btn.parentElement.dataset.key;
+  const yes = btn.dataset.v === "yes";
+  state[key].present = yes;
+  const [bYes,bNo] = btn.parentElement.querySelectorAll("button");
+  bYes.classList.toggle("on", yes);
+  bNo.classList.toggle("on", !yes);
+  bNo.classList.toggle("on-no", yes);   // тонкая рамка когда не выбран
+  bYes.classList.toggle("on-no", false);
+  document.getElementById("body-"+key).classList.toggle("hidden", !yes);
+});
+
+/* file inputs */
+devContainer.addEventListener("change", e=>{
+  const inp = e.target.closest("input[data-photo]");
+  if(!inp) return;
+  const key = inp.dataset.photo;
+  const file = inp.files[0] || null;
+  state[key].file = file;
+  const box = document.getElementById("fb-"+key);
+  box.classList.toggle("has", !!file);
+  box.querySelector(".fb-text").textContent = file ? "✓ " + file.name : "Нажмите, чтобы выбрать фото";
+});
+
+function showMsg(text, ok){
+  const m = document.getElementById("msg");
+  m.textContent = text;
+  m.className = "msg " + (ok ? "ok" : "err");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+document.getElementById("form").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const btn = document.getElementById("submitBtn");
+
+  const fio = document.getElementById("fio").value.trim();
+  if(!fio){ showMsg("Укажите ФИО.", false); return; }
+
+  // валидация: для каждого "Да" нужно фото
+  const get = (k,f)=>document.querySelector(`input[data-k="${k}"][data-f="${f}"]`)?.value.trim() || "";
+  for(const d of DEVICES){
+    if(state[d.key].present && !state[d.key].file){
+      showMsg(`Загрузите фото серийного номера для «${d.title}».`, false);
+      return;
+    }
+  }
+
+  btn.disabled = true; btn.textContent = "Отправляем…";
+
+  try{
+    const record = {
+      fio,
+      position: document.getElementById("position").value.trim(),
+      department: document.getElementById("dept").value.trim(),
+      office: document.getElementById("office").value.trim(),
+      comment: document.getElementById("comment").value.trim(),
+      devices: {},
+      created_at: new Date().toISOString()
+    };
+
+    // загрузка фото в storage + сборка данных по устройствам
+    for(const d of DEVICES){
+      if(!state[d.key].present) continue;
+      let photoUrl = null;
+      const file = state[d.key].file;
+      const path = `${Date.now()}_${d.key}_${file.name.replace(/[^\w.\-]/g,"_")}`;
+      const { error: upErr } = await supa.storage.from("serial-photos").upload(path, file);
+      if(upErr) throw upErr;
+      const { data:pub } = supa.storage.from("serial-photos").getPublicUrl(path);
+      photoUrl = pub.publicUrl;
+      record.devices[d.key] = {
+        type: d.title,
+        model: get(d.key,"model"),
+        serial: get(d.key,"serial"),
+        photo: photoUrl
+      };
+    }
+
+    const { error: insErr } = await supa.from("inventory").insert([record]);
+    if(insErr) throw insErr;
+
+    showMsg("Спасибо! Данные отправлены.", true);
+    e.target.reset();
+    DEVICES.forEach(d=>{
+      state[d.key]={present:false,file:null};
+      document.getElementById("body-"+d.key).classList.add("hidden");
+      const fb=document.getElementById("fb-"+d.key);
+      fb.classList.remove("has"); fb.querySelector(".fb-text").textContent="Нажмите, чтобы выбрать фото";
+      const tg=document.querySelector(`.toggle[data-key="${d.key}"]`);
+      tg.querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+      tg.querySelector('[data-v="no"]').classList.add("on-no");
+    });
+  }catch(err){
+    console.error(err);
+    showMsg("Ошибка отправки: " + (err.message || err) + ". Проверьте настройки Supabase.", false);
+  }finally{
+    btn.disabled=false; btn.textContent="Отправить";
+  }
+});
+
+/* простая админ-ссылка: открывает второй файл (admin.html) */
+document.getElementById("adminLink").addEventListener("click", e=>{
+  e.preventDefault();
+  window.location.href = "admin.html";
+});
+</script>
+</body>
+</html>
