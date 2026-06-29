@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Учёт ИТ-оборудования · ES</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4"></script>
+<style>
+:root{
+  --bg:#0e1726;--panel:#16233a;--panel-2:#1d2e4a;--line:#2a3c5c;
+  --ink:#eef3fb;--muted:#93a4c2;--accent:#3ea6ff;--accent-ink:#04111f;
+  --ok:#34c98a;--danger:#ff6b6b;--warn:#f0a500;--radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;line-height:1.5;min-height:100vh}
+
+/* Login */
+.login{max-width:380px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:32px}
+.login h2{margin:0 0 6px;font-size:20px}
+.login p{color:var(--muted);font-size:14px;margin:0 0 20px}
+.login .err{color:var(--danger);font-size:13px;margin-top:10px;display:none}
+
+/* App */
+.app{display:none}
+.topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:0 24px;display:flex;align-items:center;gap:12px;height:52px}
+.brand{font-weight:700;font-size:15px;color:var(--accent);margin-right:auto}
+
+.tabs{display:flex;gap:0;padding:0 24px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{padding:13px 18px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s}
+.tab.active{color:var(--ink);border-color:var(--accent)}
+.tab:hover:not(.active){color:var(--ink)}
+
+.page{display:none;padding:28px 24px 80px;max-width:1200px;margin:0 auto}
+.page.active{display:block}
+
+/* Form controls */
+input,select,textarea{
+  background:var(--panel-2);border:1px solid var(--line);
+  color:var(--ink);border-radius:9px;padding:9px 13px;
+  font-size:14px;font-family:inherit;width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+select option{background:var(--panel-2)}
+
+/* Buttons */
+.btn{background:var(--accent);color:var(--accent-ink);border:none;padding:9px 18px;border-radius:9px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px;white-space:nowrap;transition:filter .15s}
+.btn:hover:not(:disabled){filter:brightness(1.1)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn.ok{background:var(--ok);color:#012e1a}
+.btn.danger{background:var(--danger);color:#2e0101}
+.btn.sm{padding:5px 12px;font-size:13px}
+
+/* Page layout */
+.page-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.page-title{font-size:21px;font-weight:700;margin:0}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search-box{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:8px 12px 8px 34px;font-size:14px;font-family:inherit;width:220px}
+.search-box:focus{outline:none;border-color:var(--accent)}
+.search-wrap{position:relative}
+.search-wrap::before{content:"⌕";font-size:18px;position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;line-height:1}
+
+/* Stats */
+.stats{display:flex;gap:14px;margin-bottom:24px;flex-wrap:wrap}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px 20px;flex:1;min-width:120px}
+.stat .num{font-size:26px;font-weight:700;line-height:1}
+.stat .lbl{font-size:12px;color:var(--muted);margin-top:3px}
+.stat.ok .num{color:var(--ok)}
+.stat.blue .num{color:var(--accent)}
+.stat.warn .num{color:var(--warn)}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.7px;font-weight:700;white-space:nowrap}
+tr:hover td{background:rgba(255,255,255,.02)}
+.empty{color:var(--muted);text-align:center;padding:60px 0;font-size:15px}
+
+/* Badges */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.badge.stock{background:rgba(52,201,138,.15);color:var(--ok)}
+.badge.assigned{background:rgba(62,166,255,.15);color:var(--accent)}
+.badge.repair{background:rgba(240,165,0,.15);color:var(--warn)}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+.overlay.hidden{display:none}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal h3{margin:0 0 20px;font-size:18px}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.grid2{grid-template-columns:1fr}}
+.mfooter{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+.asset-info{background:var(--panel-2);border-radius:9px;padding:12px 14px;font-weight:600;margin-bottom:4px}
+.asset-sub{font-size:13px;color:var(--muted);margin-bottom:16px}
+
+/* File upload */
+.filebox{border:1.5px dashed var(--line);border-radius:9px;padding:12px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;background:var(--panel-2);transition:border-color .15s}
+.filebox:hover{border-color:var(--accent)}
+.filebox.has{border-color:var(--ok);color:var(--ok)}
+.filebox input{display:none}
+
+/* History action colors */
+.act-issue{color:var(--accent);font-weight:700}
+.act-return{color:var(--ok);font-weight:700}
+.act-add{color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div class="login" id="login">
+  <h2>Учёт ИТ-оборудования</h2>
+  <p>Введите пароль администратора</p>
+  <div class="field"><input type="password" id="pwd" placeholder="Пароль" autocomplete="off"></div>
+  <button class="btn" id="loginBtn" style="width:100%;margin-top:4px">Войти</button>
+  <div class="err" id="loginErr">Неверный пароль</div>
+</div>
+
+<!-- ── APP ── -->
+<div class="app" id="app">
+  <div class="topbar">
+    <span class="brand">Engineering Services · IT</span>
+    <button class="btn ghost sm" id="logoutBtn">Выйти</button>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-tab="stock">Склад</div>
+    <div class="tab" data-tab="assigned">Выдано</div>
+    <div class="tab" data-tab="all">Все активы</div>
+    <div class="tab" data-tab="employees">Сотрудники</div>
+    <div class="tab" data-tab="history">История</div>
+  </div>
+
+  <!-- СКЛАД -->
+  <div class="page active" id="page-stock">
+    <div class="page-header">
+      <h2 class="page-title">Склад</h2>
+      <div class="bar">
+        <div class="search-wrap"><input class="search-box" id="stockQ" placeholder="Поиск…"></div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Фото</th><th>Примечание</th><th></th></tr></thead>
+        <tbody id="stockBody"></tbody>
+      </table>
+      <div class="empty" id="stockEmpty" style="display:none">На складе пусто</div>
+    </div>
+  </div>
+
+  <!-- ВЫДАНО -->
+  <div class="page" id="page-assigned">
+    <div class="page-header">
+      <h2 class="page-title">Выдано сотрудникам</h2>
+      <div class="bar">
+        <div class="search-wrap"><input class="search-box" id="assignedQ" placeholder="Поиск…"></div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Сотрудник</th><th>Дата выдачи</th><th>Фото</th><th></th></tr></thead>
+        <tbody id="assignedBody"></tbody>
+      </table>
+      <div class="empty" id="assignedEmpty" style="display:none">Ничего не выдано</div>
+    </div>
+  </div>
+
+  <!-- ВСЕ АКТИВЫ -->
+  <div class="page" id="page-all">
+    <div class="page-header">
+      <h2 class="page-title">Все активы</h2>
+      <div class="bar">
+        <div class="search-wrap"><input class="search-box" id="allQ" placeholder="Поиск…"></div>
+        <button class="btn" id="addAssetBtn">+ Добавить</button>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Статус</th><th>Кому выдан</th><th>Фото</th></tr></thead>
+        <tbody id="allBody"></tbody>
+      </table>
+      <div class="empty" id="allEmpty" style="display:none">Активов нет</div>
+    </div>
+  </div>
+
+  <!-- СОТРУДНИКИ -->
+  <div class="page" id="page-employees">
+    <div class="page-header">
+      <h2 class="page-title">Сотрудники</h2>
+      <div class="bar">
+        <div class="search-wrap"><input class="search-box" id="empQ" placeholder="Поиск…"></div>
+        <button class="btn" id="addEmpBtn">+ Добавить</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Офис</th><th>Активов</th></tr></thead>
+        <tbody id="empBody"></tbody>
+      </table>
+      <div class="empty" id="empEmpty" style="display:none">Сотрудников нет</div>
+    </div>
+  </div>
+
+  <!-- ИСТОРИЯ -->
+  <div class="page" id="page-history">
+    <div class="page-header">
+      <h2 class="page-title">История перемещений</h2>
+      <div class="bar">
+        <div class="search-wrap"><input class="search-box" id="histQ" placeholder="Поиск…"></div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Дата</th><th>Действие</th><th>Оборудование</th><th>Серийный номер</th><th>Сотрудник</th><th>Примечание</th></tr></thead>
+        <tbody id="histBody"></tbody>
+      </table>
+      <div class="empty" id="histEmpty" style="display:none">История пуста</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Выдать ── -->
+<div class="overlay hidden" id="issueOverlay">
+  <div class="modal">
+    <h3>Выдать со склада</h3>
+    <div class="asset-info" id="issueAssetName"></div>
+    <div class="asset-sub" id="issueAssetSub"></div>
+    <div class="field">
+      <label class="lbl">Сотрудник *</label>
+      <select id="issueEmp"><option value="">— выберите сотрудника —</option></select>
+    </div>
+    <div class="field">
+      <label class="lbl">Примечание</label>
+      <input type="text" id="issueNote" placeholder="Необязательно">
+    </div>
+    <div class="mfooter">
+      <button class="btn ghost" id="issueCancelBtn">Отмена</button>
+      <button class="btn ok" id="issueConfirmBtn">Выдать</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Принять ── -->
+<div class="overlay hidden" id="returnOverlay">
+  <div class="modal">
+    <h3>Принять на склад</h3>
+    <div class="asset-info" id="returnAssetName"></div>
+    <div class="asset-sub" id="returnAssetSub"></div>
+    <div class="field">
+      <label class="lbl">Текущий владелец</label>
+      <div style="color:var(--accent);font-weight:600" id="returnOwner"></div>
+    </div>
+    <div class="field">
+      <label class="lbl">Примечание</label>
+      <input type="text" id="returnNote" placeholder="Необязательно">
+    </div>
+    <div class="mfooter">
+      <button class="btn ghost" id="returnCancelBtn">Отмена</button>
+      <button class="btn danger" id="returnConfirmBtn">Принять на склад</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Добавить актив ── -->
+<div class="overlay hidden" id="addAssetOverlay">
+  <div class="modal" style="max-width:520px">
+    <h3>Добавить оборудование</h3>
+    <div class="grid2">
+      <div class="field">
+        <label class="lbl">Тип *</label>
+        <select id="newType">
+          <option value="">— выберите —</option>
+          <option>Ноутбук</option>
+          <option>Монитор</option>
+          <option>Системный блок</option>
+          <option>Принтер</option>
+          <option>Сканер</option>
+          <option>Телефон</option>
+          <option>Планшет</option>
+          <option>Клавиатура</option>
+          <option>Мышь</option>
+          <option>Другое</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Производитель / модель</label>
+        <input type="text" id="newModel" placeholder="Dell Latitude 5540">
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl">Серийный номер</label>
+      <input type="text" id="newSerial" placeholder="ABC1234567">
+    </div>
+    <div class="field">
+      <label class="lbl">Фото (наклейка S/N)</label>
+      <label class="filebox" id="newPhotoBox">
+        <span id="newPhotoText">Нажмите, чтобы выбрать фото</span>
+        <input type="file" id="newPhotoInput" accept="image/*">
+      </label>
+    </div>
+    <div class="field">
+      <label class="lbl">Примечание</label>
+      <input type="text" id="newNote" placeholder="Необязательно">
+    </div>
+    <div class="mfooter">
+      <button class="btn ghost" id="addAssetCancelBtn">Отмена</button>
+      <button class="btn" id="addAssetConfirmBtn">Добавить на склад</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Добавить сотрудника ── -->
+<div class="overlay hidden" id="addEmpOverlay">
+  <div class="modal">
+    <h3>Добавить сотрудника</h3>
+    <div class="field"><label class="lbl">ФИО *</label><input type="text" id="newEmpName"></div>
+    <div class="grid2">
+      <div class="field"><label class="lbl">Должность</label><input type="text" id="newEmpPos"></div>
+      <div class="field"><label class="lbl">Отдел</label><input type="text" id="newEmpDept"></div>
+    </div>
+    <div class="field"><label class="lbl">Офис / город</label><input type="text" id="newEmpOffice"></div>
+    <div class="mfooter">
+      <button class="btn ghost" id="addEmpCancelBtn">Отмена</button>
+      <button class="btn" id="addEmpConfirmBtn">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL  = "https://wcbntdopwrjhzwpqgocw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjYm50ZG9wd3JqaHp3cHFnb2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDExOTksImV4cCI6MjA5ODAxNzE5OX0.JOqz_6Gf2ItdS1rml20fX-fSo6LMNHRHpRah8g9nMoA";
+const ADMIN_PASSWORD = "8U;Q=Gwgwf3FqU#";
+
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let ASSETS = [], EMPLOYEES = [], HISTORY = [];
+let currentIssueAsset = null, currentReturnAsset = null, newPhotoFile = null;
+
+// ─── AUTH ───────────────────────────────────────────────────────────
+document.getElementById("loginBtn").onclick = () => {
+  if (document.getElementById("pwd").value === ADMIN_PASSWORD) {
+    document.getElementById("login").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    loadAll();
+  } else {
+    document.getElementById("loginErr").style.display = "block";
+  }
+};
+document.getElementById("pwd").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("loginBtn").click(); });
+document.getElementById("logoutBtn").onclick = () => location.reload();
+
+// ─── TABS ────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById("page-" + tab.dataset.tab).classList.add("active");
+  });
+});
+
+// ─── LOAD ────────────────────────────────────────────────────────────
+async function loadAll() {
+  const [ar, er, hr] = await Promise.all([
+    supa.from("assets").select("*").order("created_at", { ascending: false }),
+    supa.from("employees").select("*").order("name"),
+    supa.from("movements").select("*").order("created_at", { ascending: false }).limit(300)
+  ]);
+  ASSETS    = ar.data || [];
+  EMPLOYEES = er.data || [];
+  HISTORY   = hr.data || [];
+  renderAll();
+}
+
+function renderAll() {
+  renderStock();
+  renderAssigned();
+  renderAllAssets();
+  renderEmployees();
+  renderHistory();
+  populateEmpSelect();
+}
+
+// ─── СКЛАД ───────────────────────────────────────────────────────────
+function renderStock(q = "") {
+  const rows = ASSETS.filter(a => a.status === "stock" && matchQ(a, q));
+  const tb = document.getElementById("stockBody");
+  tb.innerHTML = "";
+  document.getElementById("stockEmpty").style.display = rows.length ? "none" : "block";
+  rows.forEach(a => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(a.type)}</td>
+      <td>${esc(a.brand_model || "—")}</td>
+      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
+      <td style="color:var(--muted);font-size:13px">${esc(a.notes || "")}</td>
+      <td><button class="btn ok sm">Выдать</button></td>`;
+    tr.querySelector("button").onclick = () => openIssue(a);
+    tb.appendChild(tr);
+  });
+}
+document.getElementById("stockQ").addEventListener("input", e => renderStock(e.target.value));
+
+// ─── ВЫДАНО ──────────────────────────────────────────────────────────
+function renderAssigned(q = "") {
+  const rows = ASSETS.filter(a => a.status === "assigned").filter(a =>
+    matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase())
+  );
+  const tb = document.getElementById("assignedBody");
+  tb.innerHTML = "";
+  document.getElementById("assignedEmpty").style.display = rows.length ? "none" : "block";
+  rows.forEach(a => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(a.type)}</td>
+      <td>${esc(a.brand_model || "—")}</td>
+      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td><b>${esc(a.assigned_to || "—")}</b></td>
+      <td style="color:var(--muted);font-size:13px">${a.assigned_at ? fmtDate(a.assigned_at) : "—"}</td>
+      <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
+      <td><button class="btn danger sm">Принять</button></td>`;
+    tr.querySelector("button").onclick = () => openReturn(a);
+    tb.appendChild(tr);
+  });
+}
+document.getElementById("assignedQ").addEventListener("input", e => renderAssigned(e.target.value));
+
+// ─── ВСЕ АКТИВЫ ──────────────────────────────────────────────────────
+function renderAllAssets(q = "") {
+  const stock    = ASSETS.filter(a => a.status === "stock").length;
+  const assigned = ASSETS.filter(a => a.status === "assigned").length;
+  const repair   = ASSETS.filter(a => a.status === "repair").length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat ok"><div class="num">${stock}</div><div class="lbl">На складе</div></div>
+    <div class="stat blue"><div class="num">${assigned}</div><div class="lbl">Выдано</div></div>
+    <div class="stat warn"><div class="num">${repair}</div><div class="lbl">В ремонте</div></div>
+    <div class="stat"><div class="num">${ASSETS.length}</div><div class="lbl">Всего</div></div>`;
+
+  const rows = ASSETS.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase()));
+  const tb = document.getElementById("allBody");
+  tb.innerHTML = "";
+  document.getElementById("allEmpty").style.display = rows.length ? "none" : "block";
+  const statusMap = { stock: ["stock","На складе"], assigned: ["assigned","Выдан"], repair: ["repair","В ремонте"] };
+  rows.forEach(a => {
+    const [cls, label] = statusMap[a.status] || ["","—"];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${esc(a.type)}</td>
+      <td>${esc(a.brand_model || "—")}</td>
+      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td><span class="badge ${cls}">${label}</span></td>
+      <td>${esc(a.assigned_to || "—")}</td>
+      <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>`;
+    tb.appendChild(tr);
+  });
+}
+document.getElementById("allQ").addEventListener("input", e => renderAllAssets(e.target.value));
+
+// ─── СОТРУДНИКИ ──────────────────────────────────────────────────────
+function renderEmployees(q = "") {
+  const rows = EMPLOYEES.filter(e =>
+    [e.name, e.position, e.department, e.office].join(" ").toLowerCase().includes(q.toLowerCase())
+  );
+  const tb = document.getElementById("empBody");
+  tb.innerHTML = "";
+  document.getElementById("empEmpty").style.display = rows.length ? "none" : "block";
+  rows.forEach(emp => {
+    const count = ASSETS.filter(a => a.assigned_employee_id === emp.id).length;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><b>${esc(emp.name)}</b></td>
+      <td>${esc(emp.position || "—")}</td>
+      <td>${esc(emp.department || "—")}</td>
+      <td>${esc(emp.office || "—")}</td>
+      <td>${count > 0 ? `<span style="color:var(--accent);font-weight:700">${count}</span>` : `<span style="color:var(--muted)">0</span>`}</td>`;
+    tb.appendChild(tr);
+  });
+}
+document.getElementById("empQ").addEventListener("input", e => renderEmployees(e.target.value));
+
+// ─── ИСТОРИЯ ─────────────────────────────────────────────────────────
+function renderHistory(q = "") {
+  const rows = HISTORY.filter(h =>
+    [h.asset_type, h.asset_model, h.asset_serial, h.employee_name, h.notes].join(" ").toLowerCase().includes(q.toLowerCase())
+  );
+  const tb = document.getElementById("histBody");
+  tb.innerHTML = "";
+  document.getElementById("histEmpty").style.display = rows.length ? "none" : "block";
+  const labels = { issue: "Выдача", return: "Возврат", add: "Добавление" };
+  rows.forEach(h => {
+    const label = labels[h.action] || h.action;
+    const cls   = h.action === "issue" ? "act-issue" : h.action === "return" ? "act-return" : "act-add";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td style="white-space:nowrap;font-size:13px;color:var(--muted)">${fmtDate(h.created_at)}</td>
+      <td><span class="${cls}">${label}</span></td>
+      <td>${esc(h.asset_type || "—")}<br><span style="color:var(--muted);font-size:12px">${esc(h.asset_model || "")}</span></td>
+      <td><code style="color:var(--accent);font-size:13px">${esc(h.asset_serial || "—")}</code></td>
+      <td>${esc(h.employee_name || "—")}</td>
+      <td style="color:var(--muted);font-size:13px">${esc(h.notes || "—")}</td>`;
+    tb.appendChild(tr);
+  });
+}
+document.getElementById("histQ").addEventListener("input", e => renderHistory(e.target.value));
+
+// ─── MODAL: ВЫДАТЬ ───────────────────────────────────────────────────
+function openIssue(asset) {
+  currentIssueAsset = asset;
+  document.getElementById("issueAssetName").textContent = asset.type + (asset.brand_model ? " · " + asset.brand_model : "");
+  document.getElementById("issueAssetSub").textContent  = asset.serial ? "S/N: " + asset.serial : "";
+  document.getElementById("issueEmp").value  = "";
+  document.getElementById("issueNote").value = "";
+  document.getElementById("issueOverlay").classList.remove("hidden");
+}
+document.getElementById("issueCancelBtn").onclick  = () => document.getElementById("issueOverlay").classList.add("hidden");
+document.getElementById("issueOverlay").onclick    = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
+document.getElementById("issueConfirmBtn").onclick = async () => {
+  const empId = document.getElementById("issueEmp").value;
+  if (!empId) { alert("Выберите сотрудника"); return; }
+  const emp  = EMPLOYEES.find(e => e.id === empId);
+  const note = document.getElementById("issueNote").value.trim();
+  const btn  = document.getElementById("issueConfirmBtn");
+  btn.disabled = true; btn.textContent = "Выдаём…";
+
+  const { error } = await supa.from("assets").update({
+    status: "assigned",
+    assigned_to: emp.name,
+    assigned_employee_id: emp.id,
+    assigned_at: new Date().toISOString()
+  }).eq("id", currentIssueAsset.id);
+
+  if (!error) {
+    await supa.from("movements").insert([{
+      asset_id: currentIssueAsset.id,
+      asset_type: currentIssueAsset.type,
+      asset_model: currentIssueAsset.brand_model,
+      asset_serial: currentIssueAsset.serial,
+      action: "issue",
+      employee_id: emp.id,
+      employee_name: emp.name,
+      notes: note || null
+    }]);
+    document.getElementById("issueOverlay").classList.add("hidden");
+    await loadAll();
+  } else {
+    alert("Ошибка: " + error.message);
+  }
+  btn.disabled = false; btn.textContent = "Выдать";
+};
+
+// ─── MODAL: ПРИНЯТЬ ──────────────────────────────────────────────────
+function openReturn(asset) {
+  currentReturnAsset = asset;
+  document.getElementById("returnAssetName").textContent = asset.type + (asset.brand_model ? " · " + asset.brand_model : "");
+  document.getElementById("returnAssetSub").textContent  = asset.serial ? "S/N: " + asset.serial : "";
+  document.getElementById("returnOwner").textContent     = asset.assigned_to || "—";
+  document.getElementById("returnNote").value = "";
+  document.getElementById("returnOverlay").classList.remove("hidden");
+}
+document.getElementById("returnCancelBtn").onclick  = () => document.getElementById("returnOverlay").classList.add("hidden");
+document.getElementById("returnOverlay").onclick    = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
+document.getElementById("returnConfirmBtn").onclick = async () => {
+  const note = document.getElementById("returnNote").value.trim();
+  const btn  = document.getElementById("returnConfirmBtn");
+  btn.disabled = true; btn.textContent = "Принимаем…";
+
+  const prevEmpId   = currentReturnAsset.assigned_employee_id;
+  const prevEmpName = currentReturnAsset.assigned_to;
+
+  const { error } = await supa.from("assets").update({
+    status: "stock",
+    assigned_to: null,
+    assigned_employee_id: null,
+    assigned_at: null
+  }).eq("id", currentReturnAsset.id);
+
+  if (!error) {
+    await supa.from("movements").insert([{
+      asset_id: currentReturnAsset.id,
+      asset_type: currentReturnAsset.type,
+      asset_model: currentReturnAsset.brand_model,
+      asset_serial: currentReturnAsset.serial,
+      action: "return",
+      employee_id: prevEmpId,
+      employee_name: prevEmpName,
+      notes: note || null
+    }]);
+    document.getElementById("returnOverlay").classList.add("hidden");
+    await loadAll();
+  } else {
+    alert("Ошибка: " + error.message);
+  }
+  btn.disabled = false; btn.textContent = "Принять на склад";
+};
+
+// ─── MODAL: ДОБАВИТЬ АКТИВ ───────────────────────────────────────────
+document.getElementById("addAssetBtn").onclick = () => {
+  ["newType","newModel","newSerial","newNote"].forEach(id => document.getElementById(id).value = "");
+  newPhotoFile = null;
+  document.getElementById("newPhotoBox").classList.remove("has");
+  document.getElementById("newPhotoText").textContent = "Нажмите, чтобы выбрать фото";
+  document.getElementById("newPhotoInput").value = "";
+  document.getElementById("addAssetOverlay").classList.remove("hidden");
+};
+document.getElementById("newPhotoInput").addEventListener("change", e => {
+  newPhotoFile = e.target.files[0] || null;
+  document.getElementById("newPhotoBox").classList.toggle("has", !!newPhotoFile);
+  document.getElementById("newPhotoText").textContent = newPhotoFile ? "✓ " + newPhotoFile.name : "Нажмите, чтобы выбрать фото";
+});
+document.getElementById("addAssetCancelBtn").onclick = () => document.getElementById("addAssetOverlay").classList.add("hidden");
+document.getElementById("addAssetOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
+document.getElementById("addAssetConfirmBtn").onclick = async () => {
+  const type = document.getElementById("newType").value;
+  if (!type) { alert("Выберите тип оборудования"); return; }
+  const btn = document.getElementById("addAssetConfirmBtn");
+  btn.disabled = true; btn.textContent = "Добавляем…";
+
+  let photo_url = null;
+  if (newPhotoFile) {
+    const path = Date.now() + "_" + newPhotoFile.name.replace(/[^\w.\-]/g, "_");
+    const { error: upErr } = await supa.storage.from("serial-photos").upload(path, newPhotoFile);
+    if (!upErr) {
+      const { data: pub } = supa.storage.from("serial-photos").getPublicUrl(path);
+      photo_url = pub.publicUrl;
+    }
+  }
+
+  const record = {
+    type,
+    brand_model: document.getElementById("newModel").value.trim() || null,
+    serial:      document.getElementById("newSerial").value.trim() || null,
+    photo_url,
+    status: "stock",
+    notes:  document.getElementById("newNote").value.trim() || null
+  };
+
+  const { data: inserted, error } = await supa.from("assets").insert([record]).select().single();
+  if (!error && inserted) {
+    await supa.from("movements").insert([{
+      asset_id: inserted.id,
+      asset_type: inserted.type,
+      asset_model: inserted.brand_model,
+      asset_serial: inserted.serial,
+      action: "add",
+      notes: record.notes
+    }]);
+    document.getElementById("addAssetOverlay").classList.add("hidden");
+    await loadAll();
+  } else {
+    alert("Ошибка: " + (error?.message || "неизвестная"));
+  }
+  btn.disabled = false; btn.textContent = "Добавить на склад";
+};
+
+// ─── MODAL: ДОБАВИТЬ СОТРУДНИКА ──────────────────────────────────────
+document.getElementById("addEmpBtn").onclick = () => {
+  ["newEmpName","newEmpPos","newEmpDept","newEmpOffice"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("addEmpOverlay").classList.remove("hidden");
+};
+document.getElementById("addEmpCancelBtn").onclick = () => document.getElementById("addEmpOverlay").classList.add("hidden");
+document.getElementById("addEmpOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
+document.getElementById("addEmpConfirmBtn").onclick = async () => {
+  const name = document.getElementById("newEmpName").value.trim();
+  if (!name) { alert("Введите ФИО"); return; }
+  const btn = document.getElementById("addEmpConfirmBtn");
+  btn.disabled = true;
+  const { error } = await supa.from("employees").insert([{
+    name,
+    position:   document.getElementById("newEmpPos").value.trim()    || null,
+    department: document.getElementById("newEmpDept").value.trim()   || null,
+    office:     document.getElementById("newEmpOffice").value.trim() || null
+  }]);
+  if (!error) {
+    document.getElementById("addEmpOverlay").classList.add("hidden");
+    await loadAll();
+  } else {
+    alert("Ошибка: " + error.message);
+  }
+  btn.disabled = false;
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────
+function populateEmpSelect() {
+  const sel = document.getElementById("issueEmp");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— выберите сотрудника —</option>';
+  EMPLOYEES.forEach(e => {
+    const opt = document.createElement("option");
+    opt.value = e.id;
+    opt.textContent = e.name + (e.department ? " (" + e.department + ")" : "");
+    sel.appendChild(opt);
+  });
+  if (cur) sel.value = cur;
+}
+
+function matchQ(a, q) {
+  if (!q) return true;
+  return [a.type, a.brand_model, a.serial, a.notes].join(" ").toLowerCase().includes(q.toLowerCase());
+}
+
+function esc(s) {
+  return (s == null ? "" : String(s)).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+
+function fmtDate(s) {
+  if (!s) return "—";
+  return new Date(s).toLocaleString("ru-RU", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+</script>
+</body>
+</html>
