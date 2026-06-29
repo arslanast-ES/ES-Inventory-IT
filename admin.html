@@ -121,7 +121,8 @@ function fmtDate(s){if(!s)return"—";const d=new Date(s);return d.toLocaleStrin
 
 document.getElementById("search").addEventListener("input",e=>{
   const q=e.target.value.toLowerCase().trim();
-  render(DATA.filter(r=>[r.fio,r.position,r.department,r.office].join(" ").toLowerCase().includes(q)));
+  const devStr=r=>Object.values(r.devices||{}).map(d=>[d.model,d.serial].join(" ")).join(" ");
+  render(DATA.filter(r=>[r.fio,r.position,r.department,r.office,devStr(r)].join(" ").toLowerCase().includes(q)));
 });
 document.getElementById("refreshBtn").onclick=load;
 
