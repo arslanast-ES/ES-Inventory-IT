@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Админ-панель · Инвентаризация</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4"></script>
+<style>
+  :root{--bg:#0e1726;--panel:#16233a;--panel-2:#1d2e4a;--line:#2a3c5c;--ink:#eef3fb;--muted:#93a4c2;--accent:#3ea6ff;--accent-ink:#04111f;--ok:#34c98a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  h1{font-size:24px;margin:0}
+  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit}
+  .btn{background:var(--accent);color:var(--accent-ink);border:none;padding:9px 16px;border-radius:9px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  a.back{color:var(--muted);text-decoration:none;font-size:14px}
+  a.back:hover{color:var(--accent)}
+  .stat{color:var(--muted);font-size:14px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+  tr:hover td{background:var(--panel-2)}
+  .dev{margin-bottom:8px;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:13px}
+  .dev b{color:var(--ink)} .dev span{color:var(--muted)}
+  .dev a{color:var(--accent);text-decoration:none} .dev a:hover{text-decoration:underline}
+  .empty{color:var(--muted);text-align:center;padding:60px 0}
+  .login{max-width:380px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
+  .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 20px}
+  .login input{width:100%;margin-bottom:12px;padding:11px 13px}
+  .login .btn{width:100%}
+  .login .err{color:#ff6b6b;font-size:13px;margin-top:10px;display:none}
+  .config-note{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
+  .config-note code{background:var(--panel);padding:2px 6px;border-radius:5px;color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- простой gate по паролю (локальная защита, не криптостойкая) -->
+  <div class="login" id="login">
+    <h2>Админ-панель</h2>
+    <p>Введите пароль для доступа к собранным данным.</p>
+    <input type="password" id="pwd" placeholder="Пароль" autocomplete="off">
+    <button class="btn" id="loginBtn">Войти</button>
+    <div class="err" id="loginErr">Неверный пароль</div>
+    <p class="config-note" style="margin-top:18px">Пароль задаётся в переменной <code>ADMIN_PASSWORD</code></p>
+  </div>
+
+  <div id="panel" style="display:none">
+    <header>
+      <div>
+        <h1>Собранные данные</h1>
+        <a class="back" href="it-inventory-form.html">← к форме</a>
+      </div>
+      <div class="bar">
+        <input type="text" id="search" placeholder="Поиск по ФИО, отделу…">
+        <button class="btn ghost" id="refreshBtn">Обновить</button>
+        <button class="btn" id="csvBtn">Экспорт CSV</button>
+      </div>
+    </header>
+    <div class="stat" id="stat">Загрузка…</div>
+    <table id="tbl">
+      <thead>
+        <tr><th>Дата</th><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Офис</th><th>Оборудование</th><th>Комментарий</th></tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">Записей пока нет.</div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://wcbntdopwrjhzwpqgocw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjYm50ZG9wd3JqaHp3cHFnb2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDExOTksImV4cCI6MjA5ODAxNzE5OX0.JOqz_6Gf2ItdS1rml20fX-fSo6LMNHRHpRah8g9nMoA";
+const ADMIN_PASSWORD = "8U;Q=Gwgwf3FqU#"; // смените на свой пароль
+
+const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let DATA = [];
+
+document.getElementById("loginBtn").onclick = ()=>{
+  if(document.getElementById("pwd").value === ADMIN_PASSWORD){
+    document.getElementById("login").style.display="none";
+    document.getElementById("panel").style.display="block";
+    load();
+  } else {
+    document.getElementById("loginErr").style.display="block";
+  }
+};
+document.getElementById("pwd").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("loginBtn").click()});
+
+async function load(){
+  document.getElementById("stat").textContent = "Загрузка…";
+  const { data, error } = await supa.from("inventory").select("*").order("created_at",{ascending:false});
+  if(error){ document.getElementById("stat").textContent = "Ошибка: "+error.message; return; }
+  DATA = data || [];
+  render(DATA);
+}
+
+function render(rows){
+  const tb = document.getElementById("rows");
+  tb.innerHTML="";
+  document.getElementById("empty").style.display = rows.length? "none":"block";
+  document.getElementById("stat").textContent = `Всего записей: ${rows.length}`;
+  rows.forEach(r=>{
+    const devs = r.devices||{};
+    const devHtml = Object.values(devs).map(d=>`
+      <div class="dev"><b>${esc(d.type)}</b> · <span>${esc(d.model||"—")}</span><br>
+      S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}</div>`).join("") || "<span style='color:var(--muted)'>—</span>";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${fmtDate(r.created_at)}</td><td>${esc(r.fio)}</td><td>${esc(r.position)}</td>
+      <td>${esc(r.department)}</td><td>${esc(r.office)}</td><td>${devHtml}</td><td>${esc(r.comment)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function fmtDate(s){if(!s)return"—";const d=new Date(s);return d.toLocaleString("ru-RU")}
+
+document.getElementById("search").addEventListener("input",e=>{
+  const q=e.target.value.toLowerCase().trim();
+  render(DATA.filter(r=>[r.fio,r.position,r.department,r.office].join(" ").toLowerCase().includes(q)));
+});
+document.getElementById("refreshBtn").onclick=load;
+
+document.getElementById("csvBtn").onclick=()=>{
+  const head=["Дата","ФИО","Должность","Отдел","Офис","Устройство","Модель","Серийный","Фото","Комментарий"];
+  const lines=[head];
+  DATA.forEach(r=>{
+    const devs=Object.values(r.devices||{});
+    if(devs.length===0){
+      lines.push([fmtDate(r.created_at),r.fio,r.position,r.department,r.office,"","","","",r.comment]);
+    } else {
+      devs.forEach(d=>lines.push([fmtDate(r.created_at),r.fio,r.position,r.department,r.office,d.type,d.model,d.serial,d.photo,r.comment]));
+    }
+  });
+  const csv="\uFEFF"+lines.map(row=>row.map(c=>`"${String(c==null?"":c).replace(/"/g,'""')}"`).join(";")).join("\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="inventory_"+new Date().toISOString().slice(0,10)+".csv";
+  a.click();
+};
+</script>
+</body>
+</html>
