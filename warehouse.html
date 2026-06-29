@@ -142,6 +142,7 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
       <h2 class="page-title">Склад</h2>
       <div class="bar">
         <div class="search-wrap"><input class="search-box" id="stockQ" placeholder="Поиск…"></div>
+        <button class="btn" id="addAssetBtnStock">+ Добавить</button>
       </div>
     </div>
     <div class="tbl-wrap">
@@ -602,6 +603,7 @@ document.getElementById("returnConfirmBtn").onclick = async () => {
 };
 
 // ─── MODAL: ДОБАВИТЬ АКТИВ ───────────────────────────────────────────
+document.getElementById("addAssetBtnStock").onclick = () => document.getElementById("addAssetBtn").click();
 document.getElementById("addAssetBtn").onclick = () => {
   ["newType","newModel","newSerial","newNote"].forEach(id => document.getElementById(id).value = "");
   newPhotoFile = null;
