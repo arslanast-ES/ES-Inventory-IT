@@ -271,15 +271,56 @@ document.getElementById("form").addEventListener("submit", async e=>{
     const { error: insErr } = await supa.from("inventory").insert([record]);
     if(insErr) throw insErr;
 
-    // Добавить сотрудника в систему учёта, если его там ещё нет
+    // Найти или создать сотрудника в системе учёта
     const { data: existingEmp } = await supa.from("employees").select("id").eq("name", fio).maybeSingle();
+    let empId = existingEmp?.id || null;
     if (!existingEmp) {
-      await supa.from("employees").insert([{
+      const { data: newEmp } = await supa.from("employees").insert([{
         name: fio,
         position: record.position || null,
         department: record.department || null,
         office: record.office || null
-      }]);
+      }]).select("id").single();
+      empId = newEmp?.id || null;
+    }
+
+    // Создать активы для устройств сотрудника на складе
+    for(const d of DEVICES){
+      if(!state[d.key].present) continue;
+      const serial   = get(d.key, "serial");
+      const model    = get(d.key, "model");
+      const type     = d.key.startsWith("laptop") ? "Ноутбук" : "Монитор";
+      const photoUrl = record.devices[d.key]?.photo || null;
+
+      // Пропустить если актив с таким серийником уже есть
+      if(serial){
+        const { data: dup } = await supa.from("assets").select("id").eq("serial", serial).maybeSingle();
+        if(dup) continue;
+      }
+
+      const { data: asset } = await supa.from("assets").insert([{
+        type,
+        brand_model: model    || null,
+        serial:      serial   || null,
+        photo_url:   photoUrl,
+        status:      "assigned",
+        assigned_to: fio,
+        assigned_employee_id: empId,
+        assigned_at: new Date().toISOString()
+      }]).select().single();
+
+      if(asset){
+        await supa.from("movements").insert([{
+          asset_id:      asset.id,
+          asset_type:    asset.type,
+          asset_model:   asset.brand_model,
+          asset_serial:  asset.serial,
+          action:        "issue",
+          employee_id:   empId,
+          employee_name: fio,
+          notes:         "Из формы инвентаризации"
+        }]);
+      }
     }
 
     showMsg("Спасибо! Данные отправлены.", true);

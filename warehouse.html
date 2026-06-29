@@ -176,6 +176,7 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
       <h2 class="page-title">Все активы</h2>
       <div class="bar">
         <div class="search-wrap"><input class="search-box" id="allQ" placeholder="Поиск…"></div>
+        <button class="btn ghost" id="migrateBtn">Импорт из форм</button>
         <button class="btn" id="addAssetBtn">+ Добавить</button>
       </div>
     </div>
@@ -684,6 +685,73 @@ document.getElementById("addEmpConfirmBtn").onclick = async () => {
     alert("Ошибка: " + error.message);
   }
   btn.disabled = false;
+};
+
+// ─── MIGRATION ───────────────────────────────────────────────────────
+document.getElementById("migrateBtn").onclick = async () => {
+  if (!confirm("Импортировать всех сотрудников и их оборудование из форм инвентаризации?\n\nДубли по серийному номеру будут пропущены.")) return;
+  const btn = document.getElementById("migrateBtn");
+  btn.disabled = true; btn.textContent = "Импортируем…";
+
+  const { data: records, error } = await supa.from("inventory").select("*");
+  if (error) { alert("Ошибка чтения: " + error.message); btn.disabled = false; btn.textContent = "Импорт из форм"; return; }
+
+  let empCreated = 0, assetCreated = 0, skipped = 0;
+
+  for (const record of records || []) {
+    // Найти или создать сотрудника
+    const { data: existingEmp } = await supa.from("employees").select("id").eq("name", record.fio).maybeSingle();
+    let empId = existingEmp?.id;
+    if (!existingEmp) {
+      const { data: newEmp } = await supa.from("employees").insert([{
+        name: record.fio,
+        position: record.position || null,
+        department: record.department || null,
+        office: record.office || null
+      }]).select("id").single();
+      empId = newEmp?.id;
+      empCreated++;
+    }
+
+    // Создать активы для каждого устройства
+    for (const [key, device] of Object.entries(record.devices || {})) {
+      const type = (device.type || key).replace(/ №\d+$/, "");
+
+      if (device.serial) {
+        const { data: dup } = await supa.from("assets").select("id").eq("serial", device.serial).maybeSingle();
+        if (dup) { skipped++; continue; }
+      }
+
+      const { data: asset } = await supa.from("assets").insert([{
+        type,
+        brand_model: device.model || null,
+        serial:      device.serial || null,
+        photo_url:   device.photo || null,
+        status:      "assigned",
+        assigned_to: record.fio,
+        assigned_employee_id: empId,
+        assigned_at: record.created_at
+      }]).select().single();
+
+      if (asset) {
+        await supa.from("movements").insert([{
+          asset_id:      asset.id,
+          asset_type:    asset.type,
+          asset_model:   asset.brand_model,
+          asset_serial:  asset.serial,
+          action:        "issue",
+          employee_id:   empId,
+          employee_name: record.fio,
+          notes:         "Импорт из формы инвентаризации"
+        }]);
+        assetCreated++;
+      }
+    }
+  }
+
+  await loadAll();
+  btn.disabled = false; btn.textContent = "Импорт из форм";
+  alert(`Импорт завершён!\nСоздано сотрудников: ${empCreated}\nСоздано активов: ${assetCreated}\nПропущено дублей: ${skipped}`);
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────
