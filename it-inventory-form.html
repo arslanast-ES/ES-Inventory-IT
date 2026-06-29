@@ -271,6 +271,17 @@ document.getElementById("form").addEventListener("submit", async e=>{
     const { error: insErr } = await supa.from("inventory").insert([record]);
     if(insErr) throw insErr;
 
+    // Добавить сотрудника в систему учёта, если его там ещё нет
+    const { data: existingEmp } = await supa.from("employees").select("id").eq("name", fio).maybeSingle();
+    if (!existingEmp) {
+      await supa.from("employees").insert([{
+        name: fio,
+        position: record.position || null,
+        department: record.department || null,
+        office: record.office || null
+      }]);
+    }
+
     showMsg("Спасибо! Данные отправлены.", true);
     e.target.reset();
     DEVICES.forEach(d=>{
