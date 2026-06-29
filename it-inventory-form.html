@@ -227,6 +227,10 @@ document.getElementById("form").addEventListener("submit", async e=>{
   // валидация: для каждого "Да" нужно фото
   const get = (k,f)=>document.querySelector(`input[data-k="${k}"][data-f="${f}"]`)?.value.trim() || "";
   for(const d of DEVICES){
+    if(state[d.key].present && !get(d.key,"serial")){
+      showMsg(`Укажите серийный номер для «${d.title}».`, false);
+      return;
+    }
     if(state[d.key].present && !state[d.key].file){
       showMsg(`Загрузите фото серийного номера для «${d.title}».`, false);
       return;
