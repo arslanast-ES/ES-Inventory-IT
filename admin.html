@@ -81,11 +81,16 @@ const ADMIN_PASSWORD = "8U;Q=Gwgwf3FqU#"; // смените на свой пар
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let DATA = [];
 
+function doLogin(){
+  document.getElementById("login").style.display="none";
+  document.getElementById("panel").style.display="block";
+  sessionStorage.setItem("es_auth","1");
+  load();
+}
+if(sessionStorage.getItem("es_auth")==="1") doLogin();
 document.getElementById("loginBtn").onclick = ()=>{
   if(document.getElementById("pwd").value === ADMIN_PASSWORD){
-    document.getElementById("login").style.display="none";
-    document.getElementById("panel").style.display="block";
-    load();
+    doLogin();
   } else {
     document.getElementById("loginErr").style.display="block";
   }

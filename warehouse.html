@@ -345,17 +345,22 @@ let ASSETS = [], EMPLOYEES = [], HISTORY = [];
 let currentIssueAsset = null, currentReturnAsset = null, newPhotoFile = null;
 
 // ─── AUTH ───────────────────────────────────────────────────────────
+function doLogin() {
+  document.getElementById("login").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  sessionStorage.setItem("es_auth", "1");
+  loadAll();
+}
+if (sessionStorage.getItem("es_auth") === "1") doLogin();
 document.getElementById("loginBtn").onclick = () => {
   if (document.getElementById("pwd").value === ADMIN_PASSWORD) {
-    document.getElementById("login").style.display = "none";
-    document.getElementById("app").style.display = "block";
-    loadAll();
+    doLogin();
   } else {
     document.getElementById("loginErr").style.display = "block";
   }
 };
 document.getElementById("pwd").addEventListener("keydown", e => { if (e.key === "Enter") document.getElementById("loginBtn").click(); });
-document.getElementById("logoutBtn").onclick = () => location.reload();
+document.getElementById("logoutBtn").onclick = () => { sessionStorage.removeItem("es_auth"); location.reload(); };
 
 // ─── TABS ────────────────────────────────────────────────────────────
 document.querySelectorAll(".tab").forEach(tab => {
