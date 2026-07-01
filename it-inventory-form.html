@@ -336,7 +336,10 @@ document.getElementById("form").addEventListener("submit", async e=>{
     });
   }catch(err){
     console.error(err);
-    showMsg("Ошибка отправки: " + (err.message || err) + ". Проверьте настройки Supabase.", false);
+    const isNetwork = err.message === "Failed to fetch" || err instanceof TypeError;
+    showMsg(isNetwork
+      ? "Ошибка сети: не удалось отправить данные. Проверьте интернет-соединение и нажмите «Отправить» ещё раз."
+      : "Ошибка отправки: " + (err.message || err), false);
   }finally{
     btn.disabled=false; btn.textContent="Отправить";
   }
