@@ -188,7 +188,11 @@ DEVICES.forEach(d=>{
     <div class="device-body hidden" id="body-${d.key}">
       <div class="grid2">
         <div class="field"><label>Производитель / модель</label><input type="text" data-f="model" data-k="${d.key}"></div>
-        <div class="field"><label>Серийный номер</label><input type="text" data-f="serial" data-k="${d.key}"></div>
+        <div class="field">
+          <label>Серийный номер</label>
+          <input type="text" data-f="serial" data-k="${d.key}">
+          <div class="hint">Обозначается как S/N или Serial Number на наклейке устройства</div>
+        </div>
       </div>
       <div class="field">
         <label>Фото наклейки с серийным номером *</label>
