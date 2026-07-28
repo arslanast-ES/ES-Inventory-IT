@@ -348,6 +348,10 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
       <label class="lbl">Серийный номер</label>
       <input type="text" id="editSerial" placeholder="ABC1234567">
     </div>
+    <div class="field" id="editOcrField" style="display:none">
+      <button type="button" class="btn ghost" id="editOcrBtn" style="width:100%">Распознать S/N из фото</button>
+      <div class="hint" style="margin-top:6px">OCR извлечёт серийный номер с фото наклейки. Первый запуск загружает движок (~10 МБ). Результат проверьте перед сохранением.</div>
+    </div>
     <div class="field">
       <label class="lbl">Примечание</label>
       <input type="text" id="editNote" placeholder="Необязательно">
@@ -767,7 +771,61 @@ function openEdit(asset) {
   document.getElementById("editModel").value  = asset.brand_model || "";
   document.getElementById("editSerial").value = asset.serial || "";
   document.getElementById("editNote").value   = asset.notes || "";
+
+  const ocrField = document.getElementById("editOcrField");
+  const ocrBtn   = document.getElementById("editOcrBtn");
+  ocrField.style.display = asset.photo_url ? "block" : "none";
+  ocrBtn.textContent = "Распознать S/N из фото";
+  ocrBtn.disabled = false;
+  ocrBtn.onclick = () => recognizeSerial(asset.photo_url);
+
   document.getElementById("editOverlay").classList.remove("hidden");
+}
+
+let tesseractReady = false;
+function loadTesseract() {
+  return new Promise(resolve => {
+    if (tesseractReady) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    s.onload = () => { tesseractReady = true; resolve(); };
+    document.head.appendChild(s);
+  });
+}
+
+async function recognizeSerial(photoUrl) {
+  const btn = document.getElementById("editOcrBtn");
+  btn.disabled = true; btn.textContent = "Загружаем OCR-движок…";
+  try {
+    await loadTesseract();
+    btn.textContent = "Распознаём… 0%";
+    const { data: { text } } = await Tesseract.recognize(photoUrl, "eng", {
+      logger: m => {
+        if (m.status === "recognizing text")
+          btn.textContent = `Распознаём… ${Math.round(m.progress * 100)}%`;
+      }
+    });
+
+    // Ищем паттерн после S/N, SN, Serial No, Serial Number
+    const snMatch =
+      text.match(/S[\s\/]?N[\s:#]*([A-Z0-9][A-Z0-9\-]{4,24})/i) ||
+      text.match(/Serial\s*(?:No\.?|Number|Num\.?)?\s*[:\s#]+([A-Z0-9][A-Z0-9\-]{4,24})/i) ||
+      text.match(/\b([A-Z0-9]{8,25})\b/);
+
+    const serial = snMatch?.[1]?.trim().replace(/[^A-Z0-9\-]/gi, "") || null;
+
+    if (serial) {
+      document.getElementById("editSerial").value = serial;
+      btn.textContent = "✓ Распознано — проверьте!";
+    } else {
+      btn.textContent = "Не удалось найти S/N";
+    }
+  } catch (err) {
+    console.error(err);
+    btn.textContent = "Ошибка OCR";
+  }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000);
 }
 document.getElementById("editCancelBtn").onclick = () => document.getElementById("editOverlay").classList.add("hidden");
 document.getElementById("editOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
