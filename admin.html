@@ -23,9 +23,20 @@
   th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
   th{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
   tr:hover td{background:var(--panel-2)}
-  .dev{margin-bottom:8px;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:13px}
+  .dev{margin-bottom:8px;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:13px;position:relative}
   .dev b{color:var(--ink)} .dev span{color:var(--muted)}
   .dev a{color:var(--accent);text-decoration:none} .dev a:hover{text-decoration:underline}
+  .edit-dev-btn{position:absolute;top:6px;right:8px;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;cursor:pointer;font-size:12px;padding:2px 8px;font-family:inherit;line-height:1.4}
+  .edit-dev-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+  .overlay.hidden{display:none}
+  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:420px}
+  .modal-box h3{margin:0 0 16px;font-size:17px}
+  .mfield{margin-bottom:12px}
+  .mfield label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:600}
+  .mfield input{width:100%;padding:9px 12px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;font-size:14px;font-family:inherit}
+  .mfield input:focus{outline:none;border-color:var(--accent)}
+  .mfooter{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
   .empty{color:var(--muted);text-align:center;padding:60px 0}
   .login{max-width:380px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
   .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 20px}
@@ -73,6 +84,26 @@
   </div>
 </div>
 
+<!-- Edit Device Modal -->
+<div class="overlay hidden" id="editDevOverlay">
+  <div class="modal-box">
+    <h3>Изменить устройство</h3>
+    <div style="color:var(--muted);font-size:13px;margin-bottom:14px" id="editDevInfo"></div>
+    <div class="mfield">
+      <label>Производитель / Модель</label>
+      <input type="text" id="editDevModel" placeholder="Например: HP ProBook 450 G8">
+    </div>
+    <div class="mfield">
+      <label>Серийный номер</label>
+      <input type="text" id="editDevSerial" placeholder="Серийный номер">
+    </div>
+    <div class="mfooter">
+      <button class="btn ghost" id="editDevCancel">Отмена</button>
+      <button class="btn" id="editDevSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const SUPABASE_URL = "https://wcbntdopwrjhzwpqgocw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjYm50ZG9wd3JqaHp3cHFnb2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDExOTksImV4cCI6MjA5ODAxNzE5OX0.JOqz_6Gf2ItdS1rml20fX-fSo6LMNHRHpRah8g9nMoA";
@@ -112,9 +143,10 @@ function render(rows){
   document.getElementById("stat").textContent = `Всего записей: ${rows.length}`;
   rows.forEach(r=>{
     const devs = r.devices||{};
-    const devHtml = Object.values(devs).map(d=>`
+    const devHtml = Object.entries(devs).map(([k,d])=>`
       <div class="dev"><b>${esc(d.type)}</b> · <span>${esc(d.model||"—")}</span><br>
-      S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}</div>`).join("") || "<span style='color:var(--muted)'>—</span>";
+      S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}
+      <button class="edit-dev-btn" data-row-id="${r.id}" data-dev-key="${k}" data-fio="${esc(r.fio)}" data-type="${esc(d.type)}" data-model="${esc(d.model||"")}" data-serial="${esc(d.serial||"")}">✎</button></div>`).join("") || "<span style='color:var(--muted)'>—</span>";
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${fmtDate(r.created_at)}</td><td>${esc(r.fio)}</td><td>${esc(r.position)}</td>
       <td>${esc(r.department)}</td><td>${esc(r.office)}</td><td>${devHtml}</td><td>${esc(r.comment)}</td>`;
@@ -131,6 +163,56 @@ document.getElementById("search").addEventListener("input",e=>{
   render(DATA.filter(r=>[r.fio,r.position,r.department,r.office,devStr(r)].join(" ").toLowerCase().includes(q)));
 });
 document.getElementById("refreshBtn").onclick=load;
+
+// ─── EDIT DEVICE ─────────────────────────────────────────────────────
+let editDevTarget = null;
+
+document.getElementById("rows").addEventListener("click", e => {
+  const btn = e.target.closest(".edit-dev-btn");
+  if (!btn) return;
+  editDevTarget = { rowId: btn.dataset.rowId, devKey: btn.dataset.devKey, type: btn.dataset.type };
+  document.getElementById("editDevInfo").textContent = btn.dataset.type + " · " + btn.dataset.fio;
+  document.getElementById("editDevModel").value = btn.dataset.model;
+  document.getElementById("editDevSerial").value = btn.dataset.serial;
+  document.getElementById("editDevOverlay").classList.remove("hidden");
+});
+
+document.getElementById("editDevCancel").onclick = () => document.getElementById("editDevOverlay").classList.add("hidden");
+document.getElementById("editDevOverlay").addEventListener("click", e => {
+  if (e.target === document.getElementById("editDevOverlay")) document.getElementById("editDevOverlay").classList.add("hidden");
+});
+
+document.getElementById("editDevSave").onclick = async () => {
+  if (!editDevTarget) return;
+  const model = document.getElementById("editDevModel").value.trim();
+  const serial = document.getElementById("editDevSerial").value.trim();
+  const saveBtn = document.getElementById("editDevSave");
+  saveBtn.disabled = true; saveBtn.textContent = "Сохранение…";
+
+  const row = DATA.find(r => r.id === editDevTarget.rowId);
+  if (!row) { saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
+
+  const devs = JSON.parse(JSON.stringify(row.devices || {}));
+  devs[editDevTarget.devKey] = { ...devs[editDevTarget.devKey], model, serial };
+
+  const { error: invErr } = await supa.from("inventory").update({ devices: devs }).eq("id", row.id);
+  if (invErr) { alert("Ошибка: " + invErr.message); saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
+
+  // Sync to warehouse assets table
+  const assetType = editDevTarget.type.replace(/ №\d+$/, "");
+  const { data: emp } = await supa.from("employees").select("id").eq("name", row.fio).maybeSingle();
+  if (emp?.id) {
+    const { data: asset } = await supa.from("assets").select("id")
+      .eq("assigned_employee_id", emp.id).eq("type", assetType).maybeSingle();
+    if (asset) {
+      await supa.from("assets").update({ brand_model: model, serial }).eq("id", asset.id);
+    }
+  }
+
+  document.getElementById("editDevOverlay").classList.add("hidden");
+  saveBtn.disabled = false; saveBtn.textContent = "Сохранить";
+  await load();
+};
 
 document.getElementById("csvBtn").onclick=()=>{
   const head=["Дата","ФИО","Должность","Отдел","Офис","Устройство","Модель","Серийный","Фото","Комментарий"];

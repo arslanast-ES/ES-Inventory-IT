@@ -976,10 +976,17 @@ document.getElementById("migrateBtn").onclick = async () => {
     for (const [key, device] of Object.entries(record.devices || {})) {
       const type = (device.type || key).replace(/ №\d+$/, "");
 
+      let dup = null;
       if (device.serial) {
-        const { data: dup } = await supa.from("assets").select("id").eq("serial", device.serial).maybeSingle();
-        if (dup) { skipped++; continue; }
+        const { data: s } = await supa.from("assets").select("id").eq("serial", device.serial).maybeSingle();
+        dup = s;
       }
+      if (!dup && empId) {
+        const { data: e } = await supa.from("assets").select("id")
+          .eq("assigned_employee_id", empId).eq("type", type).maybeSingle();
+        dup = e;
+      }
+      if (dup) { skipped++; continue; }
 
       const { data: asset } = await supa.from("assets").insert([{
         type,
