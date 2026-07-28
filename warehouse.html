@@ -793,33 +793,94 @@ function loadTesseract() {
   });
 }
 
+function extractSerial(text) {
+  const clean = text.replace(/\n/g, " ");
+  const patterns = [
+    /S[\s\/]?N[\s:#]*([A-Z0-9][A-Z0-9\-]{5,24})/i,
+    /Serial\s*(?:No\.?|Number|Num\.?)?\s*[:\s#]+([A-Z0-9][A-Z0-9\-]{5,24})/i,
+    /\b([A-Z][A-Z0-9]{9,24})\b/,
+  ];
+  for (const p of patterns) {
+    const m = clean.match(p);
+    if (m) return m[1].trim().replace(/[^A-Z0-9\-]/gi, "");
+  }
+  return null;
+}
+
+async function loadImageCanvas(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.width; c.height = img.height;
+      c.getContext("2d").drawImage(img, 0, 0);
+      resolve(c);
+    };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+function invertCanvas(src) {
+  const c = document.createElement("canvas");
+  c.width = src.width; c.height = src.height;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(src, 0, 0);
+  const id = ctx.getImageData(0, 0, c.width, c.height);
+  for (let i = 0; i < id.data.length; i += 4) {
+    id.data[i]   = 255 - id.data[i];
+    id.data[i+1] = 255 - id.data[i+1];
+    id.data[i+2] = 255 - id.data[i+2];
+  }
+  ctx.putImageData(id, 0, 0);
+  return c;
+}
+
+async function ocrImage(source, btn, label) {
+  btn.textContent = label + " 0%";
+  const { data: { text } } = await Tesseract.recognize(source, "eng", {
+    logger: m => {
+      if (m.status === "recognizing text")
+        btn.textContent = `${label} ${Math.round(m.progress * 100)}%`;
+    }
+  });
+  return text;
+}
+
 async function recognizeSerial(photoUrl) {
   const btn = document.getElementById("editOcrBtn");
   btn.disabled = true; btn.textContent = "Загружаем OCR-движок…";
   try {
     await loadTesseract();
-    btn.textContent = "Распознаём… 0%";
-    const { data: { text } } = await Tesseract.recognize(photoUrl, "eng", {
-      logger: m => {
-        if (m.status === "recognizing text")
-          btn.textContent = `Распознаём… ${Math.round(m.progress * 100)}%`;
-      }
-    });
 
-    // Ищем паттерн после S/N, SN, Serial No, Serial Number
-    const snMatch =
-      text.match(/S[\s\/]?N[\s:#]*([A-Z0-9][A-Z0-9\-]{4,24})/i) ||
-      text.match(/Serial\s*(?:No\.?|Number|Num\.?)?\s*[:\s#]+([A-Z0-9][A-Z0-9\-]{4,24})/i) ||
-      text.match(/\b([A-Z0-9]{8,25})\b/);
-
-    const serial = snMatch?.[1]?.trim().replace(/[^A-Z0-9\-]/gi, "") || null;
-
-    if (serial) {
-      document.getElementById("editSerial").value = serial;
+    // Попытка 1: оригинал
+    const text1 = await ocrImage(photoUrl, btn, "Оригинал…");
+    const serial1 = extractSerial(text1);
+    if (serial1) {
+      document.getElementById("editSerial").value = serial1;
       btn.textContent = "✓ Распознано — проверьте!";
-    } else {
-      btn.textContent = "Не удалось найти S/N";
+      btn.disabled = false;
+      setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000);
+      return;
     }
+
+    // Попытка 2: инверсия цветов (белый текст на тёмном фоне)
+    const canvas = await loadImageCanvas(photoUrl);
+    if (canvas) {
+      const inverted = invertCanvas(canvas);
+      const text2 = await ocrImage(inverted, btn, "Инверсия…");
+      const serial2 = extractSerial(text2);
+      if (serial2) {
+        document.getElementById("editSerial").value = serial2;
+        btn.textContent = "✓ Распознано — проверьте!";
+        btn.disabled = false;
+        setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000);
+        return;
+      }
+    }
+
+    btn.textContent = "Не удалось найти S/N";
   } catch (err) {
     console.error(err);
     btn.textContent = "Ошибка OCR";
