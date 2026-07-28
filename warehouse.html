@@ -105,6 +105,12 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
 .filebox.has{border-color:var(--ok);color:var(--ok)}
 .filebox input{display:none}
 
+/* Sortable headers */
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--ink)}
+th.sort-asc::after{content:" ▲";font-size:9px;opacity:.8}
+th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
+
 /* History action colors */
 .act-issue{color:var(--accent);font-weight:700}
 .act-return{color:var(--ok);font-weight:700}
@@ -185,7 +191,14 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
     <div class="stats" id="stats"></div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Статус</th><th>Кому выдан</th><th>Фото</th><th></th></tr></thead>
+        <thead><tr>
+          <th class="sortable" data-sort="type">Тип</th>
+          <th class="sortable" data-sort="brand_model">Модель</th>
+          <th class="sortable" data-sort="serial">Серийный номер</th>
+          <th class="sortable" data-sort="status">Статус</th>
+          <th class="sortable" data-sort="assigned_to">Кому выдан</th>
+          <th>Фото</th><th></th>
+        </tr></thead>
         <tbody id="allBody"></tbody>
       </table>
       <div class="empty" id="allEmpty" style="display:none">Активов нет</div>
@@ -407,6 +420,7 @@ function compressImage(file, maxWidth = 1920, quality = 0.85) {
 }
 
 let ASSETS = [], EMPLOYEES = [], HISTORY = [];
+let allSortCol = null, allSortDir = 1;
 let currentIssueAsset = null, currentReturnAsset = null, newPhotoFile = null;
 
 // ─── AUTH ───────────────────────────────────────────────────────────
@@ -515,7 +529,20 @@ function renderAllAssets(q = "") {
     <div class="stat warn"><div class="num">${repair}</div><div class="lbl">В ремонте</div></div>
     <div class="stat"><div class="num">${ASSETS.length}</div><div class="lbl">Всего</div></div>`;
 
-  const rows = ASSETS.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase()));
+  let rows = ASSETS.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase()));
+  if (allSortCol) {
+    rows = [...rows].sort((a, b) => {
+      const va = (a[allSortCol] || "").toLowerCase();
+      const vb = (b[allSortCol] || "").toLowerCase();
+      return va < vb ? -allSortDir : va > vb ? allSortDir : 0;
+    });
+  }
+  // Обновить индикаторы заголовков
+  document.querySelectorAll("#page-all th.sortable").forEach(th => {
+    th.classList.remove("sort-asc", "sort-desc");
+    if (th.dataset.sort === allSortCol)
+      th.classList.add(allSortDir === 1 ? "sort-asc" : "sort-desc");
+  });
   const tb = document.getElementById("allBody");
   tb.innerHTML = "";
   document.getElementById("allEmpty").style.display = rows.length ? "none" : "block";
@@ -536,6 +563,13 @@ function renderAllAssets(q = "") {
   });
 }
 document.getElementById("allQ").addEventListener("input", e => renderAllAssets(e.target.value));
+document.querySelectorAll("#page-all th.sortable").forEach(th => {
+  th.addEventListener("click", () => {
+    const col = th.dataset.sort;
+    if (allSortCol === col) { allSortDir *= -1; } else { allSortCol = col; allSortDir = 1; }
+    renderAllAssets(document.getElementById("allQ").value);
+  });
+});
 
 // ─── СОТРУДНИКИ ──────────────────────────────────────────────────────
 function renderEmployees(q = "") {
