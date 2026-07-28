@@ -187,7 +187,11 @@ DEVICES.forEach(d=>{
     </div>
     <div class="device-body hidden" id="body-${d.key}">
       <div class="grid2">
-        <div class="field"><label>Производитель / модель</label><input type="text" data-f="model" data-k="${d.key}"></div>
+        <div class="field">
+          <label>Производитель / модель</label>
+          <input type="text" data-f="model" data-k="${d.key}" placeholder="Например: HP EliteBook 840">
+          <div class="hint">Пример: HP ProBook, Lenovo ThinkBook, Asus VivoBook, Dell Latitude</div>
+        </div>
         <div class="field">
           <label>Серийный номер</label>
           <input type="text" data-f="serial" data-k="${d.key}">
