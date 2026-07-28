@@ -185,7 +185,7 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
     <div class="stats" id="stats"></div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Статус</th><th>Кому выдан</th><th>Фото</th></tr></thead>
+        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Статус</th><th>Кому выдан</th><th>Фото</th><th></th></tr></thead>
         <tbody id="allBody"></tbody>
       </table>
       <div class="empty" id="allEmpty" style="display:none">Активов нет</div>
@@ -314,6 +314,47 @@ label.lbl{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font
     <div class="mfooter">
       <button class="btn ghost" id="addAssetCancelBtn">Отмена</button>
       <button class="btn" id="addAssetConfirmBtn">Добавить на склад</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Редактировать актив ── -->
+<div class="overlay hidden" id="editOverlay">
+  <div class="modal" style="max-width:520px">
+    <h3>Редактировать</h3>
+    <div class="grid2">
+      <div class="field">
+        <label class="lbl">Тип *</label>
+        <select id="editType">
+          <option value="">— выберите —</option>
+          <option>Ноутбук</option>
+          <option>Монитор</option>
+          <option>Системный блок</option>
+          <option>Принтер</option>
+          <option>Сканер</option>
+          <option>Телефон</option>
+          <option>Планшет</option>
+          <option>Клавиатура</option>
+          <option>Мышь</option>
+          <option>Другое</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="lbl">Производитель / модель</label>
+        <input type="text" id="editModel" placeholder="Dell Latitude 5540">
+      </div>
+    </div>
+    <div class="field">
+      <label class="lbl">Серийный номер</label>
+      <input type="text" id="editSerial" placeholder="ABC1234567">
+    </div>
+    <div class="field">
+      <label class="lbl">Примечание</label>
+      <input type="text" id="editNote" placeholder="Необязательно">
+    </div>
+    <div class="mfooter">
+      <button class="btn ghost" id="editCancelBtn">Отмена</button>
+      <button class="btn" id="editSaveBtn">Сохранить</button>
     </div>
   </div>
 </div>
@@ -484,7 +525,9 @@ function renderAllAssets(q = "") {
       <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
       <td><span class="badge ${cls}">${label}</span></td>
       <td>${esc(a.assigned_to || "—")}</td>
-      <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>`;
+      <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
+      <td><button class="btn ghost sm">Изменить</button></td>`;
+    tr.querySelector("button").onclick = () => openEdit(a);
     tb.appendChild(tr);
   });
 }
@@ -713,6 +756,41 @@ document.getElementById("addEmpConfirmBtn").onclick = async () => {
     alert("Ошибка: " + error.message);
   }
   btn.disabled = false;
+};
+
+// ─── MODAL: РЕДАКТИРОВАТЬ ────────────────────────────────────────────
+let currentEditAsset = null;
+
+function openEdit(asset) {
+  currentEditAsset = asset;
+  document.getElementById("editType").value   = asset.type || "";
+  document.getElementById("editModel").value  = asset.brand_model || "";
+  document.getElementById("editSerial").value = asset.serial || "";
+  document.getElementById("editNote").value   = asset.notes || "";
+  document.getElementById("editOverlay").classList.remove("hidden");
+}
+document.getElementById("editCancelBtn").onclick = () => document.getElementById("editOverlay").classList.add("hidden");
+document.getElementById("editOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
+document.getElementById("editSaveBtn").onclick   = async () => {
+  const type = document.getElementById("editType").value;
+  if (!type) { alert("Выберите тип"); return; }
+  const btn = document.getElementById("editSaveBtn");
+  btn.disabled = true; btn.textContent = "Сохраняем…";
+
+  const { error } = await supa.from("assets").update({
+    type,
+    brand_model: document.getElementById("editModel").value.trim()  || null,
+    serial:      document.getElementById("editSerial").value.trim() || null,
+    notes:       document.getElementById("editNote").value.trim()   || null,
+  }).eq("id", currentEditAsset.id);
+
+  if (!error) {
+    document.getElementById("editOverlay").classList.add("hidden");
+    await loadAll();
+  } else {
+    alert("Ошибка: " + error.message);
+  }
+  btn.disabled = false; btn.textContent = "Сохранить";
 };
 
 // ─── MIGRATION ───────────────────────────────────────────────────────
