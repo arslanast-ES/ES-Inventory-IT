@@ -270,29 +270,35 @@ document.getElementById("editDevSave").onclick = async () => {
   const saveBtn = document.getElementById("editDevSave");
   saveBtn.disabled = true; saveBtn.textContent = "Сохранение…";
 
-  const row = DATA.find(r => r.id === editDevTarget.rowId);
-  if (!row) { saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
+  try {
+    const row = DATA.find(r => String(r.id) === editDevTarget.rowId);
+    if (!row) { alert("Запись не найдена. Обновите страницу."); saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
 
-  const devs = JSON.parse(JSON.stringify(row.devices || {}));
-  devs[editDevTarget.devKey] = { ...devs[editDevTarget.devKey], model, serial };
+    const devs = JSON.parse(JSON.stringify(row.devices || {}));
+    devs[editDevTarget.devKey] = { ...devs[editDevTarget.devKey], model, serial };
 
-  const { error: invErr } = await supa.from("inventory").update({ devices: devs }).eq("id", row.id);
-  if (invErr) { alert("Ошибка: " + invErr.message); saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
+    const { data: updated, error: invErr } = await supa.from("inventory").update({ devices: devs }).eq("id", row.id).select();
+    if (invErr) { alert("Ошибка: " + invErr.message); saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
+    if (!updated || updated.length === 0) { alert("Нет прав на UPDATE в таблице inventory.\nВыполните в Supabase:\nALTER TABLE inventory DISABLE ROW LEVEL SECURITY;"); saveBtn.disabled = false; saveBtn.textContent = "Сохранить"; return; }
 
-  // Sync to warehouse assets table
-  const assetType = editDevTarget.type.replace(/ №\d+$/, "");
-  const { data: emp } = await supa.from("employees").select("id").eq("name", row.fio).maybeSingle();
-  if (emp?.id) {
-    const { data: asset } = await supa.from("assets").select("id")
-      .eq("assigned_employee_id", emp.id).eq("type", assetType).maybeSingle();
-    if (asset) {
-      await supa.from("assets").update({ brand_model: model, serial }).eq("id", asset.id);
+    // Sync to warehouse assets table
+    const assetType = editDevTarget.type.replace(/ №\d+$/, "");
+    const { data: emp } = await supa.from("employees").select("id").eq("name", row.fio).maybeSingle();
+    if (emp?.id) {
+      const { data: asset } = await supa.from("assets").select("id")
+        .eq("assigned_employee_id", emp.id).eq("type", assetType).maybeSingle();
+      if (asset) {
+        await supa.from("assets").update({ brand_model: model, serial }).eq("id", asset.id);
+      }
     }
-  }
 
-  document.getElementById("editDevOverlay").classList.add("hidden");
-  saveBtn.disabled = false; saveBtn.textContent = "Сохранить";
-  await load();
+    document.getElementById("editDevOverlay").classList.add("hidden");
+    saveBtn.disabled = false; saveBtn.textContent = "Сохранить";
+    await load();
+  } catch(err) {
+    alert("Ошибка: " + err.message);
+    saveBtn.disabled = false; saveBtn.textContent = "Сохранить";
+  }
 };
 
 document.getElementById("csvBtn").onclick=()=>{
