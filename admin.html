@@ -37,6 +37,10 @@
   .mfield input{width:100%;padding:9px 12px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;font-size:14px;font-family:inherit}
   .mfield input:focus{outline:none;border-color:var(--accent)}
   .mfooter{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+  th.sortable{cursor:pointer;user-select:none}
+  th.sortable:hover{color:var(--ink)}
+  th.sort-asc::after{content:" ▲";font-size:9px;opacity:.8}
+  th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
   .empty{color:var(--muted);text-align:center;padding:60px 0}
   .login{max-width:380px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
   .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 20px}
@@ -76,7 +80,15 @@
     <div class="stat" id="stat">Загрузка…</div>
     <table id="tbl">
       <thead>
-        <tr><th>Дата</th><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Офис</th><th>Оборудование</th><th>Комментарий</th></tr>
+        <tr>
+          <th class="sortable" data-sort="created_at">Дата</th>
+          <th class="sortable" data-sort="fio">ФИО</th>
+          <th class="sortable" data-sort="position">Должность</th>
+          <th class="sortable" data-sort="department">Отдел</th>
+          <th class="sortable" data-sort="office">Офис</th>
+          <th>Оборудование</th>
+          <th>Комментарий</th>
+        </tr>
       </thead>
       <tbody id="rows"></tbody>
     </table>
@@ -140,7 +152,16 @@ async function load(){
   render(DATA);
 }
 
+let adminSortCol = "created_at", adminSortDir = -1;
+
 function render(rows){
+  if (adminSortCol) {
+    rows = [...rows].sort((a,b) => String(a[adminSortCol]||"").localeCompare(String(b[adminSortCol]||""), "ru") * adminSortDir);
+  }
+  document.querySelectorAll("#tbl th.sortable").forEach(th => {
+    th.classList.remove("sort-asc","sort-desc");
+    if (th.dataset.sort === adminSortCol) th.classList.add(adminSortDir===1?"sort-asc":"sort-desc");
+  });
   const tb = document.getElementById("rows");
   tb.innerHTML="";
   document.getElementById("empty").style.display = rows.length? "none":"block";
@@ -167,6 +188,15 @@ document.getElementById("search").addEventListener("input",e=>{
   render(DATA.filter(r=>[r.fio,r.position,r.department,r.office,devStr(r)].join(" ").toLowerCase().includes(q)));
 });
 document.getElementById("refreshBtn").onclick=load;
+document.querySelectorAll("#tbl th.sortable").forEach(th => {
+  th.addEventListener("click", () => {
+    const col = th.dataset.sort;
+    if (adminSortCol === col) { adminSortDir *= -1; } else { adminSortCol = col; adminSortDir = 1; }
+    const q = document.getElementById("search").value.toLowerCase().trim();
+    const devStr = r => Object.values(r.devices||{}).map(d=>[d.model,d.serial].join(" ")).join(" ");
+    render(DATA.filter(r=>[r.fio,r.position,r.department,r.office,devStr(r)].join(" ").toLowerCase().includes(q)));
+  });
+});
 
 // ─── OCR ─────────────────────────────────────────────────────────────
 let adminTesseractReady = false;
