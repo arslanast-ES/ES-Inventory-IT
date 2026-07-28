@@ -97,6 +97,10 @@
       <label>Серийный номер</label>
       <input type="text" id="editDevSerial" placeholder="Серийный номер">
     </div>
+    <div class="mfield" id="editDevOcrField" style="display:none">
+      <button type="button" class="btn ghost" id="editDevOcrBtn" style="width:100%">Распознать S/N из фото</button>
+      <div style="font-size:12px;color:var(--muted);margin-top:5px">OCR извлечёт серийный номер с фото наклейки. Первый запуск загружает движок (~10 МБ). Результат проверьте перед сохранением.</div>
+    </div>
     <div class="mfooter">
       <button class="btn ghost" id="editDevCancel">Отмена</button>
       <button class="btn" id="editDevSave">Сохранить</button>
@@ -146,7 +150,7 @@ function render(rows){
     const devHtml = Object.entries(devs).map(([k,d])=>`
       <div class="dev"><b>${esc(d.type)}</b> · <span>${esc(d.model||"—")}</span><br>
       S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}
-      <button class="edit-dev-btn" data-row-id="${r.id}" data-dev-key="${k}" data-fio="${esc(r.fio)}" data-type="${esc(d.type)}" data-model="${esc(d.model||"")}" data-serial="${esc(d.serial||"")}">✎</button></div>`).join("") || "<span style='color:var(--muted)'>—</span>";
+      <button class="edit-dev-btn" data-row-id="${r.id}" data-dev-key="${k}" data-fio="${esc(r.fio)}" data-type="${esc(d.type)}" data-model="${esc(d.model||"")}" data-serial="${esc(d.serial||"")}" data-photo="${esc(d.photo||"")}">✎</button></div>`).join("") || "<span style='color:var(--muted)'>—</span>";
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${fmtDate(r.created_at)}</td><td>${esc(r.fio)}</td><td>${esc(r.position)}</td>
       <td>${esc(r.department)}</td><td>${esc(r.office)}</td><td>${devHtml}</td><td>${esc(r.comment)}</td>`;
@@ -164,16 +168,93 @@ document.getElementById("search").addEventListener("input",e=>{
 });
 document.getElementById("refreshBtn").onclick=load;
 
+// ─── OCR ─────────────────────────────────────────────────────────────
+let adminTesseractReady = false;
+function adminLoadTesseract() {
+  return new Promise(resolve => {
+    if (adminTesseractReady) { resolve(); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    s.onload = () => { adminTesseractReady = true; resolve(); };
+    document.head.appendChild(s);
+  });
+}
+function adminExtractSerial(text) {
+  const clean = text.replace(/\n/g, " ");
+  const patterns = [
+    /S[\s\/]?N[\s:#]*([A-Z0-9][A-Z0-9\-]{5,24})/i,
+    /Serial\s*(?:No\.?|Number|Num\.?)?\s*[:\s#]+([A-Z0-9][A-Z0-9\-]{5,24})/i,
+    /\b([A-Z][A-Z0-9]{9,24})\b/,
+  ];
+  for (const p of patterns) { const m = clean.match(p); if (m) return m[1].trim().replace(/[^A-Z0-9\-]/gi, ""); }
+  return null;
+}
+async function adminLoadImageCanvas(url) {
+  return new Promise(resolve => {
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; c.getContext("2d").drawImage(img, 0, 0); resolve(c); };
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+function adminInvertCanvas(src) {
+  const c = document.createElement("canvas"); c.width = src.width; c.height = src.height;
+  const ctx = c.getContext("2d"); ctx.drawImage(src, 0, 0);
+  const id = ctx.getImageData(0, 0, c.width, c.height);
+  for (let i = 0; i < id.data.length; i += 4) { id.data[i]=255-id.data[i]; id.data[i+1]=255-id.data[i+1]; id.data[i+2]=255-id.data[i+2]; }
+  ctx.putImageData(id, 0, 0); return c;
+}
+async function adminOcrImage(source, btn, label) {
+  btn.textContent = label + " 0%";
+  const { data: { text } } = await Tesseract.recognize(source, "eng", {
+    logger: m => { if (m.status === "recognizing text") btn.textContent = `${label} ${Math.round(m.progress*100)}%`; }
+  });
+  return text;
+}
+async function recognizeSerialAdmin(photoUrl) {
+  const btn = document.getElementById("editDevOcrBtn");
+  btn.disabled = true; btn.textContent = "Загружаем OCR-движок…";
+  try {
+    await adminLoadTesseract();
+    const text1 = await adminOcrImage(photoUrl, btn, "Оригинал…");
+    const serial1 = adminExtractSerial(text1);
+    if (serial1) {
+      document.getElementById("editDevSerial").value = serial1;
+      btn.textContent = "✓ Распознано — проверьте!"; btn.disabled = false;
+      setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000); return;
+    }
+    const canvas = await adminLoadImageCanvas(photoUrl);
+    if (canvas) {
+      const text2 = await adminOcrImage(adminInvertCanvas(canvas), btn, "Инверсия…");
+      const serial2 = adminExtractSerial(text2);
+      if (serial2) {
+        document.getElementById("editDevSerial").value = serial2;
+        btn.textContent = "✓ Распознано — проверьте!"; btn.disabled = false;
+        setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000); return;
+      }
+    }
+    btn.textContent = "Не удалось найти S/N";
+  } catch(err) { console.error(err); btn.textContent = "Ошибка OCR"; }
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = "Распознать S/N из фото"; }, 4000);
+}
+
 // ─── EDIT DEVICE ─────────────────────────────────────────────────────
 let editDevTarget = null;
 
 document.getElementById("rows").addEventListener("click", e => {
   const btn = e.target.closest(".edit-dev-btn");
   if (!btn) return;
-  editDevTarget = { rowId: btn.dataset.rowId, devKey: btn.dataset.devKey, type: btn.dataset.type };
+  editDevTarget = { rowId: btn.dataset.rowId, devKey: btn.dataset.devKey, type: btn.dataset.type, photo: btn.dataset.photo };
   document.getElementById("editDevInfo").textContent = btn.dataset.type + " · " + btn.dataset.fio;
   document.getElementById("editDevModel").value = btn.dataset.model;
   document.getElementById("editDevSerial").value = btn.dataset.serial;
+  const ocrField = document.getElementById("editDevOcrField");
+  const ocrBtn   = document.getElementById("editDevOcrBtn");
+  ocrField.style.display = btn.dataset.photo ? "block" : "none";
+  ocrBtn.textContent = "Распознать S/N из фото";
+  ocrBtn.disabled = false;
+  ocrBtn.onclick = () => recognizeSerialAdmin(btn.dataset.photo);
   document.getElementById("editDevOverlay").classList.remove("hidden");
 });
 
