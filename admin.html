@@ -3,115 +3,318 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Админ-панель · Инвентаризация</title>
+<title>Админ-панель · ES</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4"></script>
 <style>
-  :root{--bg:#0e1726;--panel:#16233a;--panel-2:#1d2e4a;--line:#2a3c5c;--ink:#eef3fb;--muted:#93a4c2;--accent:#3ea6ff;--accent-ink:#04111f;--ok:#34c98a}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;line-height:1.5}
-  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px}
-  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
-  h1{font-size:24px;margin:0}
-  .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  input[type=text]{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 12px;font-size:14px;font-family:inherit}
-  .btn{background:var(--accent);color:var(--accent-ink);border:none;padding:9px 16px;border-radius:9px;font-weight:700;cursor:pointer;font-family:inherit;font-size:14px}
-  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
-  a.back{color:var(--muted);text-decoration:none;font-size:14px}
-  a.back:hover{color:var(--accent)}
-  .stat{color:var(--muted);font-size:14px;margin-bottom:14px}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
-  th{color:var(--accent);font-size:12px;text-transform:uppercase;letter-spacing:.6px;font-weight:700}
-  tr:hover td{background:var(--panel-2)}
-  .dev{margin-bottom:8px;padding:8px 10px;background:var(--panel-2);border-radius:8px;font-size:13px;position:relative}
-  .dev b{color:var(--ink)} .dev span{color:var(--muted)}
-  .dev a{color:var(--accent);text-decoration:none} .dev a:hover{text-decoration:underline}
-  .edit-dev-btn{position:absolute;top:6px;right:8px;background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;cursor:pointer;font-size:12px;padding:2px 8px;font-family:inherit;line-height:1.4}
-  .edit-dev-btn:hover{color:var(--accent);border-color:var(--accent)}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
-  .overlay.hidden{display:none}
-  .modal-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:420px}
-  .modal-box h3{margin:0 0 16px;font-size:17px}
-  .mfield{margin-bottom:12px}
-  .mfield label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:600}
-  .mfield input{width:100%;padding:9px 12px;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;font-size:14px;font-family:inherit}
-  .mfield input:focus{outline:none;border-color:var(--accent)}
-  .mfooter{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
-  th.sortable{cursor:pointer;user-select:none}
-  th.sortable:hover{color:var(--ink)}
-  th.sort-asc::after{content:" ▲";font-size:9px;opacity:.8}
-  th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
-  .empty{color:var(--muted);text-align:center;padding:60px 0}
-  .login{max-width:380px;margin:80px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px}
-  .login h2{margin:0 0 6px} .login p{color:var(--muted);font-size:14px;margin:0 0 20px}
-  .login input{width:100%;margin-bottom:12px;padding:11px 13px}
-  .login .btn{width:100%}
-  .login .err{color:#ff6b6b;font-size:13px;margin-top:10px;display:none}
-  .config-note{font-size:12px;color:var(--muted);text-align:center;margin-top:20px}
-  .config-note code{background:var(--panel);padding:2px 6px;border-radius:5px;color:var(--accent)}
+/* ── TOKENS (same system as warehouse) ────────────────────────── */
+:root{
+  --bg:        #0c0f1a;
+  --surface:   #131827;
+  --surface-2: #1b2237;
+  --surface-3: #232e4a;
+  --line:      #273450;
+  --line-2:    #374a6e;
+  --ink:       #e6ecf8;
+  --muted:     #8394b8;
+  --dim:       #4e5e82;
+  --accent:    #6471f5;
+  --accent-dk: #4f5cd8;
+  --accent-bg: rgba(100,113,245,.13);
+  --ok:        #22cc88;
+  --ok-bg:     rgba(34,204,136,.13);
+  --ok-ink:    #012b1c;
+  --danger:    #f45060;
+  --danger-bg: rgba(244,80,96,.13);
+  --warn:      #f0a830;
+  --r:         9px;
+  --r-lg:      14px;
+  --topbar:    56px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+
+/* ── LOGIN ──────────────────────────────────────────────────── */
+.login-wrap{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+}
+.login-card{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:40px 36px;width:100%;max-width:380px;
+  box-shadow:0 32px 64px rgba(0,0,0,.55);
+}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.login-logo-icon{
+  width:42px;height:42px;background:var(--accent-bg);
+  border:1px solid rgba(100,113,245,.3);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+}
+.login-logo-name{font-size:15px;font-weight:700;line-height:1.25}
+.login-logo-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.login-title{font-size:20px;font-weight:700;margin-bottom:6px}
+.login-hint{font-size:14px;color:var(--muted);margin-bottom:24px}
+.login-err{
+  color:var(--danger);font-size:13px;margin-top:14px;padding:10px 14px;
+  background:var(--danger-bg);border-radius:var(--r);display:none;
+}
+.login-note{font-size:12px;color:var(--dim);text-align:center;margin-top:16px}
+.login-note code{background:var(--surface-2);padding:2px 6px;border-radius:5px;color:var(--accent);font-family:monospace}
+
+/* ── APP SHELL ──────────────────────────────────────────────── */
+#panel{display:none;flex-direction:column;height:100vh}
+#panel.visible{display:flex}
+
+.topbar{
+  height:var(--topbar);background:var(--surface);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;padding:0 24px;gap:12px;flex-shrink:0;
+}
+.brand{
+  font-size:15px;font-weight:700;color:var(--ink);
+  display:flex;align-items:center;gap:10px;text-decoration:none;
+}
+.brand-icon{
+  width:28px;height:28px;background:var(--accent-bg);
+  border:1px solid rgba(100,113,245,.3);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;
+}
+.topbar-gap{flex:1}
+
+/* ── FORM CONTROLS ──────────────────────────────────────────── */
+input,select{
+  background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+  border-radius:var(--r);padding:9px 13px;font-size:14px;font-family:inherit;
+  transition:border-color .12s,box-shadow .12s;
+}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-bg)}
+input::placeholder{color:var(--dim)}
+
+/* ── BUTTONS ────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent);color:#fff;border:1px solid transparent;
+  padding:8px 16px;border-radius:var(--r);font-weight:600;cursor:pointer;
+  font-family:inherit;font-size:14px;white-space:nowrap;
+  transition:background .12s,filter .12s;line-height:1;text-decoration:none;
+}
+.btn:hover:not(:disabled){background:var(--accent-dk)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent;border-color:var(--line-2);color:var(--muted)}
+.btn.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.btn.sm{padding:5px 11px;font-size:13px}
+
+/* ── MAIN CONTENT ───────────────────────────────────────────── */
+.content{flex:1;overflow-y:auto;padding:24px 28px 60px;max-width:1400px;width:100%}
+
+.page-header{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:12px;margin-bottom:20px;flex-wrap:wrap;
+}
+.page-title{font-size:22px;font-weight:700;letter-spacing:-.3px}
+.page-sub{font-size:13px;color:var(--muted);margin-top:3px}
+.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.search-wrap{position:relative}
+.search-wrap::before{
+  content:"⌕";position:absolute;left:10px;top:50%;
+  transform:translateY(-52%);color:var(--dim);font-size:17px;pointer-events:none;
+}
+.search-box{padding-left:33px;width:240px}
+
+.stat-row{
+  font-size:13px;color:var(--muted);margin-bottom:16px;
+  display:flex;align-items:center;gap:8px;
+}
+.stat-pill{
+  background:var(--surface-2);border:1px solid var(--line);border-radius:20px;
+  padding:3px 12px;font-size:13px;color:var(--ink);font-weight:600;
+}
+
+/* ── TABLE ──────────────────────────────────────────────────── */
+.tbl-wrap{
+  overflow-x:auto;border-radius:var(--r);
+  border:1px solid var(--line);background:var(--surface);
+}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead tr{position:sticky;top:0;z-index:1}
+th{
+  text-align:left;padding:11px 14px;
+  background:var(--surface-2);color:var(--muted);
+  font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;
+  white-space:nowrap;border-bottom:1px solid var(--line);
+}
+td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.025)}
+.empty{
+  text-align:center;padding:60px 24px;color:var(--muted);
+  font-size:14px;background:var(--surface);
+}
+
+/* Sortable */
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--ink)}
+th.sort-asc::after{content:" ↑";font-size:10px}
+th.sort-desc::after{content:" ↓";font-size:10px}
+
+/* Device card inside td */
+.dev{
+  margin-bottom:8px;padding:10px 12px;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:var(--r);
+  font-size:13px;position:relative;
+}
+.dev:last-child{margin-bottom:0}
+.dev-name{font-weight:600;color:var(--ink);margin-bottom:2px}
+.dev-serial{font-family:monospace;color:var(--accent);font-size:12px}
+.dev-muted{color:var(--muted)}
+.dev a{color:var(--accent);text-decoration:none}
+.dev a:hover{text-decoration:underline}
+.edit-dev-btn{
+  position:absolute;top:8px;right:8px;
+  background:transparent;border:1px solid var(--line-2);color:var(--muted);
+  border-radius:6px;cursor:pointer;font-size:12px;padding:3px 9px;
+  font-family:inherit;line-height:1.4;transition:color .12s,border-color .12s;
+}
+.edit-dev-btn:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-bg)}
+
+/* ── MODAL ──────────────────────────────────────────────────── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.72);
+  display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;
+  backdrop-filter:blur(6px);
+}
+.overlay.hidden{display:none}
+.modal-box{
+  background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-lg);
+  width:100%;max-width:440px;
+  box-shadow:0 32px 80px rgba(0,0,0,.65);
+  animation:modal-in .14s ease-out;
+}
+@keyframes modal-in{
+  from{opacity:0;transform:scale(.96) translateY(10px)}
+  to  {opacity:1;transform:scale(1) translateY(0)}
+}
+.modal-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 24px 18px;border-bottom:1px solid var(--line);
+}
+.modal-head h3{font-size:17px;font-weight:700}
+.modal-x{
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:18px;line-height:1;padding:4px 6px;border-radius:6px;
+  transition:color .12s,background .12s;
+}
+.modal-x:hover{color:var(--ink);background:var(--surface-3)}
+.modal-body{padding:20px 24px}
+.modal-info{
+  font-size:13px;color:var(--muted);margin-bottom:16px;
+  padding:8px 12px;background:var(--surface-2);border-radius:var(--r);
+  border:1px solid var(--line);
+}
+.mfield{margin-bottom:14px}
+.mfield:last-child{margin-bottom:0}
+.mfield label{
+  display:block;font-size:11px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:6px;
+}
+.mfield input{width:100%}
+.hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:6px}
+.mfooter{
+  display:flex;gap:10px;justify-content:flex-end;
+  padding:16px 24px 20px;border-top:1px solid var(--line);
+}
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <!-- простой gate по паролю (локальная защита, не криптостойкая) -->
-  <div class="login" id="login">
-    <h2>Админ-панель</h2>
-    <p>Введите пароль для доступа к собранным данным.</p>
-    <input type="password" id="pwd" placeholder="Пароль" autocomplete="off">
-    <button class="btn" id="loginBtn">Войти</button>
-    <div class="err" id="loginErr">Неверный пароль</div>
-    <p class="config-note" style="margin-top:18px">Пароль задаётся в переменной <code>ADMIN_PASSWORD</code></p>
-  </div>
-
-  <div id="panel" style="display:none">
-    <header>
+<!-- ── LOGIN ── -->
+<div class="login-wrap" id="login">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🛡️</div>
       <div>
-        <h1>Собранные данные</h1>
-        <a class="back" href="it-inventory-form.html">← к форме</a>
+        <div class="login-logo-name">Engineering Services</div>
+        <div class="login-logo-sub">Панель администратора</div>
       </div>
-      <div class="bar">
-        <input type="text" id="search" placeholder="Поиск по ФИО, отделу…">
-        <button class="btn ghost" id="refreshBtn">Обновить</button>
-        <button class="btn" id="csvBtn">Экспорт CSV</button>
-        <a class="btn" href="warehouse.html">Склад →</a>
-      </div>
-    </header>
-    <div class="stat" id="stat">Загрузка…</div>
-    <table id="tbl">
-      <thead>
-        <tr>
-          <th class="sortable" data-sort="created_at">Дата</th>
-          <th class="sortable" data-sort="fio">ФИО</th>
-          <th class="sortable" data-sort="position">Должность</th>
-          <th class="sortable" data-sort="department">Отдел</th>
-          <th class="sortable" data-sort="office">Офис</th>
-          <th>Оборудование</th>
-          <th>Комментарий</th>
-        </tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div class="empty" id="empty" style="display:none">Записей пока нет.</div>
+    </div>
+    <div class="login-title">Вход в систему</div>
+    <div class="login-hint">Введите пароль администратора</div>
+    <input type="password" id="pwd" placeholder="Пароль" autocomplete="off" style="margin-bottom:12px">
+    <button class="btn" id="loginBtn" style="width:100%;justify-content:center">Войти</button>
+    <div class="login-err" id="loginErr">Неверный пароль</div>
+    <div class="login-note">Пароль задаётся в переменной <code>ADMIN_PASSWORD</code></div>
   </div>
 </div>
 
-<!-- Edit Device Modal -->
+<!-- ── PANEL ── -->
+<div id="panel">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      Админ-панель
+    </div>
+    <div class="topbar-gap"></div>
+    <div class="bar">
+      <div class="search-wrap">
+        <input type="text" class="search-box" id="search" placeholder="Поиск по ФИО, отделу…">
+      </div>
+      <button class="btn ghost sm" id="refreshBtn">Обновить</button>
+      <button class="btn ghost sm" id="csvBtn">Экспорт CSV</button>
+      <a class="btn sm" href="warehouse.html">Склад →</a>
+    </div>
+  </header>
+
+  <div class="content">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Собранные данные</div>
+        <div class="page-sub"><a href="it-inventory-form.html" style="color:var(--muted);text-decoration:none">← к форме инвентаризации</a></div>
+      </div>
+      <div class="stat-row">Всего: <span class="stat-pill" id="stat">—</span></div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th class="sortable" data-sort="created_at">Дата</th>
+            <th class="sortable" data-sort="fio">ФИО</th>
+            <th class="sortable" data-sort="position">Должность</th>
+            <th class="sortable" data-sort="department">Отдел</th>
+            <th class="sortable" data-sort="office">Офис</th>
+            <th>Оборудование</th>
+            <th>Комментарий</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" style="display:none">Записей пока нет.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Редактировать устройство ── -->
 <div class="overlay hidden" id="editDevOverlay">
   <div class="modal-box">
-    <h3>Изменить устройство</h3>
-    <div style="color:var(--muted);font-size:13px;margin-bottom:14px" id="editDevInfo"></div>
-    <div class="mfield">
-      <label>Производитель / Модель</label>
-      <input type="text" id="editDevModel" placeholder="Например: HP ProBook 450 G8">
+    <div class="modal-head">
+      <h3>Изменить устройство</h3>
+      <button class="modal-x" id="editDevXBtn">✕</button>
     </div>
-    <div class="mfield">
-      <label>Серийный номер</label>
-      <input type="text" id="editDevSerial" placeholder="Серийный номер">
-    </div>
-    <div class="mfield" id="editDevOcrField" style="display:none">
-      <button type="button" class="btn ghost" id="editDevOcrBtn" style="width:100%">Распознать S/N из фото</button>
-      <div style="font-size:12px;color:var(--muted);margin-top:5px">OCR извлечёт серийный номер с фото наклейки. Первый запуск загружает движок (~10 МБ). Результат проверьте перед сохранением.</div>
+    <div class="modal-body">
+      <div class="modal-info" id="editDevInfo"></div>
+      <div class="mfield">
+        <label>Производитель / Модель</label>
+        <input type="text" id="editDevModel" placeholder="Например: HP ProBook 450 G8">
+      </div>
+      <div class="mfield">
+        <label>Серийный номер</label>
+        <input type="text" id="editDevSerial" placeholder="Серийный номер">
+      </div>
+      <div class="mfield" id="editDevOcrField" style="display:none">
+        <button type="button" class="btn ghost" id="editDevOcrBtn" style="width:100%">Распознать S/N из фото</button>
+        <div class="hint">OCR извлечёт серийный номер с фото наклейки. Первый запуск загружает движок (~10 МБ). Результат проверьте перед сохранением.</div>
+      </div>
     </div>
     <div class="mfooter">
       <button class="btn ghost" id="editDevCancel">Отмена</button>
@@ -130,7 +333,7 @@ let DATA = [];
 
 function doLogin(){
   document.getElementById("login").style.display="none";
-  document.getElementById("panel").style.display="block";
+  document.getElementById("panel").classList.add("visible");
   localStorage.setItem("es_auth","1");
   load();
 }
@@ -165,13 +368,16 @@ function render(rows){
   const tb = document.getElementById("rows");
   tb.innerHTML="";
   document.getElementById("empty").style.display = rows.length? "none":"block";
-  document.getElementById("stat").textContent = `Всего записей: ${rows.length}`;
+  document.getElementById("stat").textContent = rows.length;
   rows.forEach(r=>{
     const devs = r.devices||{};
     const devHtml = Object.entries(devs).map(([k,d])=>`
-      <div class="dev"><b>${esc(d.type)}</b> · <span>${esc(d.model||"—")}</span><br>
-      S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}
-      <button class="edit-dev-btn" data-row-id="${r.id}" data-dev-key="${k}" data-fio="${esc(r.fio)}" data-type="${esc(d.type)}" data-model="${esc(d.model||"")}" data-serial="${esc(d.serial||"")}" data-photo="${esc(d.photo||"")}">✎</button></div>`).join("") || "<span style='color:var(--muted)'>—</span>";
+      <div class="dev">
+        <div class="dev-name">${esc(d.type)}</div>
+        <div class="dev-muted">${esc(d.model||"—")}</div>
+        <div class="dev-serial">S/N: ${esc(d.serial||"—")} ${d.photo?`· <a href="${d.photo}" target="_blank">фото</a>`:""}</div>
+        <button class="edit-dev-btn" data-row-id="${r.id}" data-dev-key="${k}" data-fio="${esc(r.fio)}" data-type="${esc(d.type)}" data-model="${esc(d.model||"")}" data-serial="${esc(d.serial||"")}" data-photo="${esc(d.photo||"")}">✎</button>
+      </div>`).join("") || `<span style='color:var(--dim)'>—</span>`;
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${fmtDate(r.created_at)}</td><td>${esc(r.fio)}</td><td>${esc(r.position)}</td>
       <td>${esc(r.department)}</td><td>${esc(r.office)}</td><td>${devHtml}</td><td>${esc(r.comment)}</td>`;
@@ -348,6 +554,9 @@ document.getElementById("csvBtn").onclick=()=>{
   a.download="inventory_"+new Date().toISOString().slice(0,10)+".csv";
   a.click();
 };
+
+// ✕ close button
+document.getElementById("editDevXBtn").onclick = () => document.getElementById("editDevOverlay").classList.add("hidden");
 </script>
 </body>
 </html>
