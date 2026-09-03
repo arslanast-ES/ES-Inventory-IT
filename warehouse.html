@@ -498,7 +498,7 @@ function renderStock(q = "") {
   tb.innerHTML = "";
   document.getElementById("stockEmpty").style.display = rows.length ? "none" : "block";
   rows.forEach(a => {
-    const lastReturn = MOVEMENTS
+    const lastReturn = HISTORY
       .filter(m => m.asset_id === a.id && (m.action === "return" || m.action === "import"))
       .sort((x, y) => new Date(y.created_at) - new Date(x.created_at))[0];
     const stockDate = lastReturn ? lastReturn.created_at : a.created_at;
