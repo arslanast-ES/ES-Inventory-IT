@@ -111,6 +111,16 @@ th.sortable:hover{color:var(--ink)}
 th.sort-asc::after{content:" ▲";font-size:9px;opacity:.8}
 th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
 
+/* Filters */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.flt{background:var(--panel-2);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:7px 12px;font-size:13px;font-family:inherit;cursor:pointer;min-width:150px}
+.flt:focus{outline:none;border-color:var(--accent)}
+.flt option{background:var(--panel-2)}
+
+/* Pagination */
+.pager{display:flex;align-items:center;gap:12px;padding:14px 0 4px;justify-content:center;flex-wrap:wrap}
+.pager-info{font-size:13px;color:var(--muted)}
+
 /* History action colors */
 .act-issue{color:var(--accent);font-weight:700}
 .act-return{color:var(--ok);font-weight:700}
@@ -154,6 +164,9 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
         <button class="btn" id="addAssetBtnStock">+ Добавить</button>
       </div>
     </div>
+    <div class="filter-bar">
+      <select class="flt" id="stockTypeF"><option value="">Все типы</option></select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Фото</th><th>Примечание</th><th>Поступил на склад</th><th></th></tr></thead>
@@ -161,6 +174,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </table>
       <div class="empty" id="stockEmpty" style="display:none">На складе пусто</div>
     </div>
+    <div id="stockPager"></div>
   </div>
 
   <!-- ВЫДАНО -->
@@ -171,6 +185,9 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
         <div class="search-wrap"><input class="search-box" id="assignedQ" placeholder="Поиск…"></div>
       </div>
     </div>
+    <div class="filter-bar">
+      <select class="flt" id="assignedTypeF"><option value="">Все типы</option></select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Сотрудник</th><th>Дата выдачи</th><th>Фото</th><th></th></tr></thead>
@@ -178,6 +195,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </table>
       <div class="empty" id="assignedEmpty" style="display:none">Ничего не выдано</div>
     </div>
+    <div id="assignedPager"></div>
   </div>
 
   <!-- ВСЕ АКТИВЫ -->
@@ -191,6 +209,15 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </div>
     </div>
     <div class="stats" id="stats"></div>
+    <div class="filter-bar">
+      <select class="flt" id="allTypeF"><option value="">Все типы</option></select>
+      <select class="flt" id="allStatusF">
+        <option value="">Все статусы</option>
+        <option value="stock">На складе</option>
+        <option value="assigned">Выдано</option>
+        <option value="repair">В ремонте</option>
+      </select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr>
@@ -205,6 +232,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </table>
       <div class="empty" id="allEmpty" style="display:none">Активов нет</div>
     </div>
+    <div id="allPager"></div>
   </div>
 
   <!-- СОТРУДНИКИ -->
@@ -216,6 +244,10 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
         <button class="btn" id="addEmpBtn">+ Добавить</button>
       </div>
     </div>
+    <div class="filter-bar">
+      <select class="flt" id="empDeptF"><option value="">Все отделы</option></select>
+      <select class="flt" id="empOfficeF"><option value="">Все офисы</option></select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Офис</th><th>Активов</th></tr></thead>
@@ -223,6 +255,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </table>
       <div class="empty" id="empEmpty" style="display:none">Сотрудников нет</div>
     </div>
+    <div id="empPager"></div>
   </div>
 
   <!-- ИСТОРИЯ -->
@@ -233,6 +266,14 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
         <div class="search-wrap"><input class="search-box" id="histQ" placeholder="Поиск…"></div>
       </div>
     </div>
+    <div class="filter-bar">
+      <select class="flt" id="histActionF">
+        <option value="">Все действия</option>
+        <option value="issue">Выдача</option>
+        <option value="return">Возврат</option>
+        <option value="add">Добавление</option>
+      </select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>Дата</th><th>Действие</th><th>Оборудование</th><th>Серийный номер</th><th>Сотрудник</th><th>Примечание</th></tr></thead>
@@ -240,6 +281,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
       </table>
       <div class="empty" id="histEmpty" style="display:none">История пуста</div>
     </div>
+    <div id="histPager"></div>
   </div>
 </div>
 
@@ -421,6 +463,29 @@ function compressImage(file, maxWidth = 1920, quality = 0.85) {
 }
 
 let ASSETS = [], EMPLOYEES = [], HISTORY = [];
+const PAGE = 25, HIST_PAGE = 50;
+let stockPage=1, assignedPage=1, allPage=1, empPage=1, histPage=1;
+
+function fillSelect(id, placeholder, vals) {
+  const el = document.getElementById(id); if (!el) return;
+  const cur = el.value;
+  el.innerHTML = `<option value="">${placeholder}</option>` +
+    [...new Set(vals.filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),"ru"))
+      .map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  if (cur) el.value = cur;
+}
+function renderPager(id, page, total, pages, onNav) {
+  const el = document.getElementById(id); if (!el) return;
+  if (pages <= 1) { el.innerHTML=""; return; }
+  el.innerHTML = `<div class="pager">
+    <button class="btn ghost sm pager-prev"${page<=1?" disabled":""}>← Пред</button>
+    <span class="pager-info">Стр. ${page} из ${pages} · ${total} записей</span>
+    <button class="btn ghost sm pager-next"${page>=pages?" disabled":""}>След →</button>
+  </div>`;
+  const prev=el.querySelector(".pager-prev"), next=el.querySelector(".pager-next");
+  if(page>1&&prev) prev.onclick=()=>onNav(page-1);
+  if(page<pages&&next) next.onclick=()=>onNav(page+1);
+}
 let allSortCol = null, allSortDir = 1;
 let currentIssueAsset = null, currentReturnAsset = null, newPhotoFile = null;
 
@@ -492,12 +557,20 @@ function renderAll() {
 }
 
 // ─── СКЛАД ───────────────────────────────────────────────────────────
-function renderStock(q = "") {
-  const rows = ASSETS.filter(a => a.status === "stock" && matchQ(a, q));
+function renderStock() {
+  const q = document.getElementById("stockQ").value.toLowerCase();
+  const typeF = document.getElementById("stockTypeF").value;
+  let rows = ASSETS.filter(a => a.status === "stock");
+  fillSelect("stockTypeF", "Все типы", rows.map(a => a.type));
+  if (typeF) rows = rows.filter(a => a.type === typeF);
+  if (q) rows = rows.filter(a => matchQ(a, q));
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  if (stockPage>pages) stockPage=1;
+  const pageRows=rows.slice((stockPage-1)*PAGE, stockPage*PAGE);
   const tb = document.getElementById("stockBody");
   tb.innerHTML = "";
-  document.getElementById("stockEmpty").style.display = rows.length ? "none" : "block";
-  rows.forEach(a => {
+  document.getElementById("stockEmpty").style.display = total ? "none" : "block";
+  pageRows.forEach(a => {
     const lastReturn = HISTORY
       .filter(m => m.asset_id === a.id && (m.action === "return" || m.action === "import"))
       .sort((x, y) => new Date(y.created_at) - new Date(x.created_at))[0];
@@ -514,18 +587,26 @@ function renderStock(q = "") {
     tr.querySelector("button").onclick = () => openIssue(a);
     tb.appendChild(tr);
   });
+  renderPager("stockPager", stockPage, total, pages, p=>{stockPage=p; renderStock();});
 }
-document.getElementById("stockQ").addEventListener("input", e => renderStock(e.target.value));
+document.getElementById("stockQ").addEventListener("input", ()=>{stockPage=1; renderStock();});
+document.getElementById("stockTypeF").addEventListener("change", ()=>{stockPage=1; renderStock();});
 
 // ─── ВЫДАНО ──────────────────────────────────────────────────────────
-function renderAssigned(q = "") {
-  const rows = ASSETS.filter(a => a.status === "assigned").filter(a =>
-    matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase())
-  );
+function renderAssigned() {
+  const q = document.getElementById("assignedQ").value.toLowerCase();
+  const typeF = document.getElementById("assignedTypeF").value;
+  let rows = ASSETS.filter(a => a.status === "assigned");
+  fillSelect("assignedTypeF", "Все типы", rows.map(a => a.type));
+  if (typeF) rows = rows.filter(a => a.type === typeF);
+  if (q) rows = rows.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q));
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  if (assignedPage>pages) assignedPage=1;
+  const pageRows=rows.slice((assignedPage-1)*PAGE, assignedPage*PAGE);
   const tb = document.getElementById("assignedBody");
   tb.innerHTML = "";
-  document.getElementById("assignedEmpty").style.display = rows.length ? "none" : "block";
-  rows.forEach(a => {
+  document.getElementById("assignedEmpty").style.display = total ? "none" : "block";
+  pageRows.forEach(a => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(a.type)}</td>
@@ -538,11 +619,16 @@ function renderAssigned(q = "") {
     tr.querySelector("button").onclick = () => openReturn(a);
     tb.appendChild(tr);
   });
+  renderPager("assignedPager", assignedPage, total, pages, p=>{assignedPage=p; renderAssigned();});
 }
-document.getElementById("assignedQ").addEventListener("input", e => renderAssigned(e.target.value));
+document.getElementById("assignedQ").addEventListener("input", ()=>{assignedPage=1; renderAssigned();});
+document.getElementById("assignedTypeF").addEventListener("change", ()=>{assignedPage=1; renderAssigned();});
 
 // ─── ВСЕ АКТИВЫ ──────────────────────────────────────────────────────
-function renderAllAssets(q = "") {
+function renderAllAssets() {
+  const q = document.getElementById("allQ").value.toLowerCase();
+  const typeF = document.getElementById("allTypeF").value;
+  const statusF = document.getElementById("allStatusF").value;
   const stock    = ASSETS.filter(a => a.status === "stock").length;
   const assigned = ASSETS.filter(a => a.status === "assigned").length;
   const repair   = ASSETS.filter(a => a.status === "repair").length;
@@ -551,8 +637,11 @@ function renderAllAssets(q = "") {
     <div class="stat blue"><div class="num">${assigned}</div><div class="lbl">Выдано</div></div>
     <div class="stat warn"><div class="num">${repair}</div><div class="lbl">В ремонте</div></div>
     <div class="stat"><div class="num">${ASSETS.length}</div><div class="lbl">Всего</div></div>`;
-
-  let rows = ASSETS.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q.toLowerCase()));
+  let rows = ASSETS.slice();
+  fillSelect("allTypeF", "Все типы", rows.map(a => a.type));
+  if (typeF) rows = rows.filter(a => a.type === typeF);
+  if (statusF) rows = rows.filter(a => a.status === statusF);
+  if (q) rows = rows.filter(a => matchQ(a, q) || (a.assigned_to || "").toLowerCase().includes(q));
   if (allSortCol) {
     rows = [...rows].sort((a, b) => {
       const va = (a[allSortCol] || "").toLowerCase();
@@ -560,17 +649,18 @@ function renderAllAssets(q = "") {
       return va < vb ? -allSortDir : va > vb ? allSortDir : 0;
     });
   }
-  // Обновить индикаторы заголовков
   document.querySelectorAll("#page-all th.sortable").forEach(th => {
     th.classList.remove("sort-asc", "sort-desc");
-    if (th.dataset.sort === allSortCol)
-      th.classList.add(allSortDir === 1 ? "sort-asc" : "sort-desc");
+    if (th.dataset.sort === allSortCol) th.classList.add(allSortDir === 1 ? "sort-asc" : "sort-desc");
   });
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  if (allPage>pages) allPage=1;
+  const pageRows=rows.slice((allPage-1)*PAGE, allPage*PAGE);
   const tb = document.getElementById("allBody");
   tb.innerHTML = "";
-  document.getElementById("allEmpty").style.display = rows.length ? "none" : "block";
+  document.getElementById("allEmpty").style.display = total ? "none" : "block";
   const statusMap = { stock: ["stock","На складе"], assigned: ["assigned","Выдан"], repair: ["repair","В ремонте"] };
-  rows.forEach(a => {
+  pageRows.forEach(a => {
     const [cls, label] = statusMap[a.status] || ["","—"];
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -584,25 +674,38 @@ function renderAllAssets(q = "") {
     tr.querySelector("button").onclick = () => openEdit(a);
     tb.appendChild(tr);
   });
+  renderPager("allPager", allPage, total, pages, p=>{allPage=p; renderAllAssets();});
 }
-document.getElementById("allQ").addEventListener("input", e => renderAllAssets(e.target.value));
+document.getElementById("allQ").addEventListener("input", ()=>{allPage=1; renderAllAssets();});
+document.getElementById("allTypeF").addEventListener("change", ()=>{allPage=1; renderAllAssets();});
+document.getElementById("allStatusF").addEventListener("change", ()=>{allPage=1; renderAllAssets();});
 document.querySelectorAll("#page-all th.sortable").forEach(th => {
   th.addEventListener("click", () => {
     const col = th.dataset.sort;
     if (allSortCol === col) { allSortDir *= -1; } else { allSortCol = col; allSortDir = 1; }
-    renderAllAssets(document.getElementById("allQ").value);
+    allPage = 1;
+    renderAllAssets();
   });
 });
 
 // ─── СОТРУДНИКИ ──────────────────────────────────────────────────────
-function renderEmployees(q = "") {
-  const rows = EMPLOYEES.filter(e =>
-    [e.name, e.position, e.department, e.office].join(" ").toLowerCase().includes(q.toLowerCase())
-  );
+function renderEmployees() {
+  const q = document.getElementById("empQ").value.toLowerCase();
+  const deptF = document.getElementById("empDeptF").value;
+  const officeF = document.getElementById("empOfficeF").value;
+  let rows = EMPLOYEES.slice();
+  fillSelect("empDeptF", "Все отделы", rows.map(e => e.department));
+  fillSelect("empOfficeF", "Все офисы", rows.map(e => e.office));
+  if (deptF) rows = rows.filter(e => e.department === deptF);
+  if (officeF) rows = rows.filter(e => e.office === officeF);
+  if (q) rows = rows.filter(e => [e.name, e.position, e.department, e.office].join(" ").toLowerCase().includes(q));
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/PAGE));
+  if (empPage>pages) empPage=1;
+  const pageRows=rows.slice((empPage-1)*PAGE, empPage*PAGE);
   const tb = document.getElementById("empBody");
   tb.innerHTML = "";
-  document.getElementById("empEmpty").style.display = rows.length ? "none" : "block";
-  rows.forEach(emp => {
+  document.getElementById("empEmpty").style.display = total ? "none" : "block";
+  pageRows.forEach(emp => {
     const count = ASSETS.filter(a => a.assigned_employee_id === emp.id).length;
     const tr = document.createElement("tr");
     tr.innerHTML = `
@@ -613,19 +716,27 @@ function renderEmployees(q = "") {
       <td>${count > 0 ? `<span style="color:var(--accent);font-weight:700">${count}</span>` : `<span style="color:var(--muted)">0</span>`}</td>`;
     tb.appendChild(tr);
   });
+  renderPager("empPager", empPage, total, pages, p=>{empPage=p; renderEmployees();});
 }
-document.getElementById("empQ").addEventListener("input", e => renderEmployees(e.target.value));
+document.getElementById("empQ").addEventListener("input", ()=>{empPage=1; renderEmployees();});
+document.getElementById("empDeptF").addEventListener("change", ()=>{empPage=1; renderEmployees();});
+document.getElementById("empOfficeF").addEventListener("change", ()=>{empPage=1; renderEmployees();});
 
 // ─── ИСТОРИЯ ─────────────────────────────────────────────────────────
-function renderHistory(q = "") {
-  const rows = HISTORY.filter(h =>
-    [h.asset_type, h.asset_model, h.asset_serial, h.employee_name, h.notes].join(" ").toLowerCase().includes(q.toLowerCase())
-  );
+function renderHistory() {
+  const q = document.getElementById("histQ").value.toLowerCase();
+  const actionF = document.getElementById("histActionF").value;
+  let rows = HISTORY.slice();
+  if (actionF) rows = rows.filter(h => h.action === actionF);
+  if (q) rows = rows.filter(h => [h.asset_type, h.asset_model, h.asset_serial, h.employee_name, h.notes].join(" ").toLowerCase().includes(q));
+  const total=rows.length, pages=Math.max(1,Math.ceil(total/HIST_PAGE));
+  if (histPage>pages) histPage=1;
+  const pageRows=rows.slice((histPage-1)*HIST_PAGE, histPage*HIST_PAGE);
   const tb = document.getElementById("histBody");
   tb.innerHTML = "";
-  document.getElementById("histEmpty").style.display = rows.length ? "none" : "block";
+  document.getElementById("histEmpty").style.display = total ? "none" : "block";
   const labels = { issue: "Выдача", return: "Возврат", add: "Добавление" };
-  rows.forEach(h => {
+  pageRows.forEach(h => {
     const label = labels[h.action] || h.action;
     const cls   = h.action === "issue" ? "act-issue" : h.action === "return" ? "act-return" : "act-add";
     const tr = document.createElement("tr");
@@ -638,8 +749,10 @@ function renderHistory(q = "") {
       <td style="color:var(--muted);font-size:13px">${esc(h.notes || "—")}</td>`;
     tb.appendChild(tr);
   });
+  renderPager("histPager", histPage, total, pages, p=>{histPage=p; renderHistory();});
 }
-document.getElementById("histQ").addEventListener("input", e => renderHistory(e.target.value));
+document.getElementById("histQ").addEventListener("input", ()=>{histPage=1; renderHistory();});
+document.getElementById("histActionF").addEventListener("change", ()=>{histPage=1; renderHistory();});
 
 // ─── MODAL: ВЫДАТЬ ───────────────────────────────────────────────────
 function openIssue(asset) {
