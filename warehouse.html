@@ -156,7 +156,7 @@ th.sort-desc::after{content:" ▼";font-size:9px;opacity:.8}
     </div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Фото</th><th>Примечание</th><th></th></tr></thead>
+        <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Фото</th><th>Примечание</th><th>Поступил на склад</th><th></th></tr></thead>
         <tbody id="stockBody"></tbody>
       </table>
       <div class="empty" id="stockEmpty" style="display:none">На складе пусто</div>
@@ -498,6 +498,10 @@ function renderStock(q = "") {
   tb.innerHTML = "";
   document.getElementById("stockEmpty").style.display = rows.length ? "none" : "block";
   rows.forEach(a => {
+    const lastReturn = MOVEMENTS
+      .filter(m => m.asset_id === a.id && (m.action === "return" || m.action === "import"))
+      .sort((x, y) => new Date(y.created_at) - new Date(x.created_at))[0];
+    const stockDate = lastReturn ? lastReturn.created_at : a.created_at;
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${esc(a.type)}</td>
@@ -505,6 +509,7 @@ function renderStock(q = "") {
       <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
       <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
       <td style="color:var(--muted);font-size:13px">${esc(a.notes || "")}</td>
+      <td style="color:var(--muted);font-size:13px;white-space:nowrap">${fmtDate(stockDate)}</td>
       <td><button class="btn ok sm">Выдать</button></td>`;
     tr.querySelector("button").onclick = () => openIssue(a);
     tb.appendChild(tr);
