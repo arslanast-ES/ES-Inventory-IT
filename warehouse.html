@@ -293,6 +293,69 @@ label.lbl{
   .main-content{overflow-y:unset}
   .page{padding:20px 16px 40px}
 }
+
+/* ── NAV BADGE ──────────────────────────────────────────────── */
+.nav-badge{
+  margin-left:auto;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:20px;padding:1px 8px;font-size:11px;font-weight:700;color:var(--muted);
+  min-width:22px;text-align:center;line-height:1.7;transition:background .12s,color .12s;
+  flex-shrink:0;
+}
+.tab.active .nav-badge{
+  background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.2);color:rgba(255,255,255,.9);
+}
+
+/* ── S/N CLICK-TO-COPY ──────────────────────────────────────── */
+.sn{
+  font-family:"Courier New",monospace;color:var(--accent);font-size:13px;
+  cursor:pointer;border-radius:4px;padding:1px 5px;display:inline-block;
+  transition:background .1s;
+}
+.sn:hover{background:var(--accent-bg)}
+.sn::after{content:" ⎘";font-size:10px;opacity:0;transition:opacity .1s}
+.sn:hover::after{opacity:.6}
+
+/* ── TOAST ──────────────────────────────────────────────────── */
+#toastWrap{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  display:flex;flex-direction:column;gap:8px;pointer-events:none;
+}
+.toast{
+  background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line-2);
+  border-radius:var(--r);padding:11px 16px;box-shadow:var(--sh);
+  font-size:14px;color:var(--ink);display:flex;align-items:center;gap:10px;
+  animation:t-in .2s ease-out;max-width:340px;pointer-events:all;
+}
+.toast.ok {border-left-color:var(--ok)}
+.toast.err{border-left-color:var(--danger)}
+.toast.info{border-left-color:var(--accent)}
+.ti{font-size:15px;font-weight:700;flex-shrink:0}
+.toast.ok  .ti{color:var(--ok)}
+.toast.err .ti{color:var(--danger)}
+.toast.info .ti{color:var(--accent)}
+@keyframes t-in {from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+@keyframes t-out{from{opacity:1}to{opacity:0;transform:translateX(14px)}}
+
+/* ── LOADING BAR ────────────────────────────────────────────── */
+.topbar{position:relative}
+.topbar::after{
+  content:"";position:absolute;bottom:0;left:0;height:2px;
+  background:var(--accent);width:0;opacity:0;transition:opacity .2s;
+}
+.app.loading .topbar::after{
+  opacity:1;animation:loadbar 1.4s ease-in-out infinite;width:auto;
+}
+@keyframes loadbar{
+  0%{left:0;right:100%}50%{left:20%;right:10%}100%{left:100%;right:0}
+}
+
+/* ── EMPTY STATE ────────────────────────────────────────────── */
+.empty-title{font-weight:600;font-size:15px;color:var(--ink);margin-bottom:6px}
+.empty-sub  {font-size:13px;color:var(--dim);margin-bottom:18px;max-width:320px;margin-left:auto;margin-right:auto}
+
+/* ── ROW ACTIONS (hover reveal for secondary) ───────────────── */
+.row-act{opacity:0;transition:opacity .12s}
+tr:hover .row-act{opacity:1}
 </style>
 </head>
 <body>
@@ -334,11 +397,11 @@ label.lbl{
   <div class="app-body">
   <nav class="tabs">
     <span class="nav-label">Навигация</span>
-    <div class="tab active" data-tab="stock"><span class="tab-icon">📦</span>Склад</div>
-    <div class="tab" data-tab="assigned"><span class="tab-icon">📤</span>Выдано</div>
-    <div class="tab" data-tab="all"><span class="tab-icon">🗂</span>Все активы</div>
-    <div class="tab" data-tab="employees"><span class="tab-icon">👥</span>Сотрудники</div>
-    <div class="tab" data-tab="history"><span class="tab-icon">📋</span>История</div>
+    <div class="tab active" data-tab="stock"><span class="tab-icon">📦</span>Склад<span class="nav-badge" id="badge-stock">—</span></div>
+    <div class="tab" data-tab="assigned"><span class="tab-icon">📤</span>Выдано<span class="nav-badge" id="badge-assigned">—</span></div>
+    <div class="tab" data-tab="all"><span class="tab-icon">🗂</span>Все активы<span class="nav-badge" id="badge-all">—</span></div>
+    <div class="tab" data-tab="employees"><span class="tab-icon">👥</span>Сотрудники<span class="nav-badge" id="badge-employees">—</span></div>
+    <div class="tab" data-tab="history"><span class="tab-icon">📋</span>История<span class="nav-badge" id="badge-history">—</span></div>
     <div class="sidebar-spacer"></div>
   </nav>
   <div class="main-content">
@@ -360,7 +423,12 @@ label.lbl{
         <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Фото</th><th>Примечание</th><th>Поступил на склад</th><th></th></tr></thead>
         <tbody id="stockBody"></tbody>
       </table>
-      <div class="empty" id="stockEmpty" style="display:none">На складе пусто</div>
+      <div class="empty" id="stockEmpty" style="display:none">
+        <span class="empty-icon">📦</span>
+        <div class="empty-title">Склад пуст</div>
+        <div class="empty-sub">Добавьте первое оборудование для учёта</div>
+        <button class="btn sm" onclick="document.getElementById('addAssetBtn').click()">+ Добавить оборудование</button>
+      </div>
     </div>
     <div id="stockPager"></div>
   </div>
@@ -381,7 +449,11 @@ label.lbl{
         <thead><tr><th>Тип</th><th>Модель</th><th>Серийный номер</th><th>Сотрудник</th><th>Дата выдачи</th><th>Фото</th><th></th></tr></thead>
         <tbody id="assignedBody"></tbody>
       </table>
-      <div class="empty" id="assignedEmpty" style="display:none">Ничего не выдано</div>
+      <div class="empty" id="assignedEmpty" style="display:none">
+        <span class="empty-icon">📤</span>
+        <div class="empty-title">Ничего не выдано</div>
+        <div class="empty-sub">Выдайте оборудование сотруднику прямо со склада</div>
+      </div>
     </div>
     <div id="assignedPager"></div>
   </div>
@@ -418,7 +490,12 @@ label.lbl{
         </tr></thead>
         <tbody id="allBody"></tbody>
       </table>
-      <div class="empty" id="allEmpty" style="display:none">Активов нет</div>
+      <div class="empty" id="allEmpty" style="display:none">
+        <span class="empty-icon">🗂</span>
+        <div class="empty-title">Оборудование не найдено</div>
+        <div class="empty-sub">Попробуйте изменить фильтры или добавьте новое оборудование</div>
+        <button class="btn sm" onclick="document.getElementById('addAssetBtn').click()">+ Добавить оборудование</button>
+      </div>
     </div>
     <div id="allPager"></div>
   </div>
@@ -441,7 +518,12 @@ label.lbl{
         <thead><tr><th>ФИО</th><th>Должность</th><th>Отдел</th><th>Офис</th><th>Активов</th></tr></thead>
         <tbody id="empBody"></tbody>
       </table>
-      <div class="empty" id="empEmpty" style="display:none">Сотрудников нет</div>
+      <div class="empty" id="empEmpty" style="display:none">
+        <span class="empty-icon">👥</span>
+        <div class="empty-title">Сотрудники не найдены</div>
+        <div class="empty-sub">Добавьте первого сотрудника для выдачи оборудования</div>
+        <button class="btn sm" onclick="document.getElementById('addEmpBtn').click()">+ Добавить сотрудника</button>
+      </div>
     </div>
     <div id="empPager"></div>
   </div>
@@ -467,7 +549,11 @@ label.lbl{
         <thead><tr><th>Дата</th><th>Действие</th><th>Оборудование</th><th>Серийный номер</th><th>Сотрудник</th><th>Примечание</th></tr></thead>
         <tbody id="histBody"></tbody>
       </table>
-      <div class="empty" id="histEmpty" style="display:none">История пуста</div>
+      <div class="empty" id="histEmpty" style="display:none">
+        <span class="empty-icon">📋</span>
+        <div class="empty-title">История пуста</div>
+        <div class="empty-sub">Здесь появятся записи о выдаче и возврате оборудования</div>
+      </div>
     </div>
     <div id="histPager"></div>
   </div><!-- /main-content -->
@@ -637,6 +723,8 @@ label.lbl{
   </div>
 </div>
 
+<div id="toastWrap"></div>
+
 <script>
 const SUPABASE_URL  = "https://wcbntdopwrjhzwpqgocw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjYm50ZG9wd3JqaHp3cHFnb2N3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NDExOTksImV4cCI6MjA5ODAxNzE5OX0.JOqz_6Gf2ItdS1rml20fX-fSo6LMNHRHpRah8g9nMoA";
@@ -735,7 +823,37 @@ document.querySelectorAll(".tab").forEach(tab => {
 });
 
 // ─── LOAD ────────────────────────────────────────────────────────────
+// ─── TOAST ───────────────────────────────────────────────────────────
+function toast(msg, type="ok", ms){
+  const wrap=document.getElementById("toastWrap");
+  const el=document.createElement("div");
+  el.className="toast "+type;
+  const ic={ok:"✓",err:"✕",info:"⎘"};
+  el.innerHTML=`<span class="ti">${ic[type]||"·"}</span><span>${esc(msg)}</span>`;
+  wrap.appendChild(el);
+  const delay=ms||(type==="err"?5000:3000);
+  setTimeout(()=>{el.style.animation="t-out .2s ease-out forwards";el.addEventListener("animationend",()=>el.remove());},delay);
+}
+
+// ─── BADGES ──────────────────────────────────────────────────────────
+function updateBadges(){
+  const stock   =ASSETS.filter(a=>a.status==="stock").length;
+  const assigned=ASSETS.filter(a=>a.status==="assigned").length;
+  [["badge-stock",stock],["badge-assigned",assigned],["badge-all",ASSETS.length],
+   ["badge-employees",EMPLOYEES.length],["badge-history",HISTORY.length]]
+    .forEach(([id,n])=>{const el=document.getElementById(id);if(el)el.textContent=n;});
+}
+
+// ─── S/N COPY ────────────────────────────────────────────────────────
+function copySN(el){
+  const sn=el.dataset.sn||"";
+  navigator.clipboard?.writeText(sn)
+    .then(()=>toast("S/N скопирован: "+sn,"info"))
+    .catch(()=>toast("Не удалось скопировать","err"));
+}
+
 async function loadAll() {
+  document.getElementById("app").classList.add("loading");
   const [ar, er, hr] = await Promise.all([
     supa.from("assets").select("*").order("created_at", { ascending: false }),
     supa.from("employees").select("*").order("name"),
@@ -744,6 +862,7 @@ async function loadAll() {
   ASSETS    = ar.data || [];
   EMPLOYEES = er.data || [];
   HISTORY   = hr.data || [];
+  document.getElementById("app").classList.remove("loading");
   renderAll();
 }
 
@@ -754,6 +873,7 @@ function renderAll() {
   renderEmployees();
   renderHistory();
   populateEmpSelect();
+  updateBadges();
 }
 
 // ─── СКЛАД ───────────────────────────────────────────────────────────
@@ -779,7 +899,7 @@ function renderStock() {
     tr.innerHTML = `
       <td>${esc(a.type)}</td>
       <td>${esc(a.brand_model || "—")}</td>
-      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td>${a.serial?`<span class="sn" data-sn="${esc(a.serial)}" onclick="copySN(this)" title="Нажмите, чтобы скопировать">${esc(a.serial)}</span>`:'<span style="color:var(--dim)">—</span>'}</td>
       <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
       <td style="color:var(--muted);font-size:13px">${esc(a.notes || "")}</td>
       <td style="color:var(--muted);font-size:13px;white-space:nowrap">${fmtDate(stockDate)}</td>
@@ -811,7 +931,7 @@ function renderAssigned() {
     tr.innerHTML = `
       <td>${esc(a.type)}</td>
       <td>${esc(a.brand_model || "—")}</td>
-      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td>${a.serial?`<span class="sn" data-sn="${esc(a.serial)}" onclick="copySN(this)" title="Нажмите, чтобы скопировать">${esc(a.serial)}</span>`:'<span style="color:var(--dim)">—</span>'}</td>
       <td><b>${esc(a.assigned_to || "—")}</b></td>
       <td style="color:var(--muted);font-size:13px">${a.assigned_at ? fmtDate(a.assigned_at) : "—"}</td>
       <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
@@ -866,11 +986,11 @@ function renderAllAssets() {
     tr.innerHTML = `
       <td>${esc(a.type)}</td>
       <td>${esc(a.brand_model || "—")}</td>
-      <td><code style="color:var(--accent);font-size:13px">${esc(a.serial || "—")}</code></td>
+      <td>${a.serial?`<span class="sn" data-sn="${esc(a.serial)}" onclick="copySN(this)" title="Нажмите, чтобы скопировать">${esc(a.serial)}</span>`:'<span style="color:var(--dim)">—</span>'}</td>
       <td><span class="badge ${cls}">${label}</span></td>
       <td>${esc(a.assigned_to || "—")}</td>
       <td>${a.photo_url ? `<a href="${esc(a.photo_url)}" target="_blank" style="color:var(--accent)">фото</a>` : "—"}</td>
-      <td><button class="btn ghost sm">Изменить</button></td>`;
+      <td><button class="btn ghost sm row-act">Изменить</button></td>`;
     tr.querySelector("button").onclick = () => openEdit(a);
     tb.appendChild(tr);
   });
@@ -944,7 +1064,7 @@ function renderHistory() {
       <td style="white-space:nowrap;font-size:13px;color:var(--muted)">${fmtDate(h.created_at)}</td>
       <td><span class="${cls}">${label}</span></td>
       <td>${esc(h.asset_type || "—")}<br><span style="color:var(--muted);font-size:12px">${esc(h.asset_model || "")}</span></td>
-      <td><code style="color:var(--accent);font-size:13px">${esc(h.asset_serial || "—")}</code></td>
+      <td>${h.asset_serial?`<span class="sn" data-sn="${esc(h.asset_serial)}" onclick="copySN(this)" title="Нажмите, чтобы скопировать">${esc(h.asset_serial)}</span>`:'<span style="color:var(--dim)">—</span>'}</td>
       <td>${esc(h.employee_name || "—")}</td>
       <td style="color:var(--muted);font-size:13px">${esc(h.notes || "—")}</td>`;
     tb.appendChild(tr);
@@ -967,7 +1087,7 @@ document.getElementById("issueCancelBtn").onclick  = () => document.getElementBy
 document.getElementById("issueOverlay").onclick    = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
 document.getElementById("issueConfirmBtn").onclick = async () => {
   const empId = document.getElementById("issueEmp").value;
-  if (!empId) { alert("Выберите сотрудника"); return; }
+  if (!empId) { toast("Выберите сотрудника", "err"); return; }
   const emp  = EMPLOYEES.find(e => e.id === empId);
   const note = document.getElementById("issueNote").value.trim();
   const btn  = document.getElementById("issueConfirmBtn");
@@ -992,9 +1112,10 @@ document.getElementById("issueConfirmBtn").onclick = async () => {
       notes: note || null
     }]);
     document.getElementById("issueOverlay").classList.add("hidden");
+    toast("Выдано: " + emp.name + " ← " + currentIssueAsset.type, "ok");
     await loadAll();
   } else {
-    alert("Ошибка: " + error.message);
+    toast("Ошибка: " + error.message, "err");
   }
   btn.disabled = false; btn.textContent = "Выдать";
 };
@@ -1037,9 +1158,10 @@ document.getElementById("returnConfirmBtn").onclick = async () => {
       notes: note || null
     }]);
     document.getElementById("returnOverlay").classList.add("hidden");
+    toast("Оборудование принято на склад: " + currentReturnAsset.type, "ok");
     await loadAll();
   } else {
-    alert("Ошибка: " + error.message);
+    toast("Ошибка: " + error.message, "err");
   }
   btn.disabled = false; btn.textContent = "Принять на склад";
 };
@@ -1063,7 +1185,7 @@ document.getElementById("addAssetCancelBtn").onclick = () => document.getElement
 document.getElementById("addAssetOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
 document.getElementById("addAssetConfirmBtn").onclick = async () => {
   const type = document.getElementById("newType").value;
-  if (!type) { alert("Выберите тип оборудования"); return; }
+  if (!type) { toast("Выберите тип оборудования", "err"); return; }
   const btn = document.getElementById("addAssetConfirmBtn");
   btn.disabled = true; btn.textContent = "Добавляем…";
 
@@ -1098,9 +1220,10 @@ document.getElementById("addAssetConfirmBtn").onclick = async () => {
       notes: record.notes
     }]);
     document.getElementById("addAssetOverlay").classList.add("hidden");
+    toast("Добавлено на склад: " + type + (record.brand_model ? " · " + record.brand_model : ""), "ok");
     await loadAll();
   } else {
-    alert("Ошибка: " + (error?.message || "неизвестная"));
+    toast("Ошибка: " + (error?.message || "неизвестная"), "err");
   }
   btn.disabled = false; btn.textContent = "Добавить на склад";
 };
@@ -1114,7 +1237,7 @@ document.getElementById("addEmpCancelBtn").onclick = () => document.getElementBy
 document.getElementById("addEmpOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
 document.getElementById("addEmpConfirmBtn").onclick = async () => {
   const name = document.getElementById("newEmpName").value.trim();
-  if (!name) { alert("Введите ФИО"); return; }
+  if (!name) { toast("Введите ФИО сотрудника", "err"); return; }
   const btn = document.getElementById("addEmpConfirmBtn");
   btn.disabled = true;
   const { error } = await supa.from("employees").insert([{
@@ -1125,9 +1248,10 @@ document.getElementById("addEmpConfirmBtn").onclick = async () => {
   }]);
   if (!error) {
     document.getElementById("addEmpOverlay").classList.add("hidden");
+    toast("Сотрудник добавлен: " + name, "ok");
     await loadAll();
   } else {
-    alert("Ошибка: " + error.message);
+    toast("Ошибка: " + error.message, "err");
   }
   btn.disabled = false;
 };
@@ -1262,7 +1386,7 @@ document.getElementById("editCancelBtn").onclick = () => document.getElementById
 document.getElementById("editOverlay").onclick   = e => { if (e.target === e.currentTarget) e.currentTarget.classList.add("hidden"); };
 document.getElementById("editSaveBtn").onclick   = async () => {
   const type = document.getElementById("editType").value;
-  if (!type) { alert("Выберите тип"); return; }
+  if (!type) { toast("Выберите тип оборудования", "err"); return; }
   const btn = document.getElementById("editSaveBtn");
   btn.disabled = true; btn.textContent = "Сохраняем…";
 
@@ -1275,9 +1399,10 @@ document.getElementById("editSaveBtn").onclick   = async () => {
 
   if (!error) {
     document.getElementById("editOverlay").classList.add("hidden");
+    toast("Изменения сохранены", "ok");
     await loadAll();
   } else {
-    alert("Ошибка: " + error.message);
+    toast("Ошибка: " + error.message, "err");
   }
   btn.disabled = false; btn.textContent = "Сохранить";
 };
@@ -1289,7 +1414,7 @@ document.getElementById("migrateBtn").onclick = async () => {
   btn.disabled = true; btn.textContent = "Импортируем…";
 
   const { data: records, error } = await supa.from("inventory").select("*");
-  if (error) { alert("Ошибка чтения: " + error.message); btn.disabled = false; btn.textContent = "Импорт из форм"; return; }
+  if (error) { toast("Ошибка чтения: " + error.message, "err"); btn.disabled = false; btn.textContent = "Импорт из форм"; return; }
 
   let empCreated = 0, assetCreated = 0, skipped = 0;
 
@@ -1353,7 +1478,7 @@ document.getElementById("migrateBtn").onclick = async () => {
 
   await loadAll();
   btn.disabled = false; btn.textContent = "Импорт из форм";
-  alert(`Импорт завершён!\nСоздано сотрудников: ${empCreated}\nСоздано активов: ${assetCreated}\nПропущено дублей: ${skipped}`);
+  toast(`Импорт завершён · Сотрудников: ${empCreated} · Активов: ${assetCreated}` + (skipped ? ` · Пропущено: ${skipped}` : ""), "ok", 6000);
 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────
@@ -1395,6 +1520,31 @@ function fmtDate(s) {
   const btn = document.getElementById(btnId);
   const ov  = document.getElementById(overlayId);
   if (btn && ov) btn.onclick = () => ov.classList.add("hidden");
+});
+
+// ─── KEYBOARD SHORTCUTS ──────────────────────────────────────
+// /  → фокус в поиск текущей вкладки
+// N  → открыть модал добавления
+// Esc → закрыть открытый оверлей
+document.addEventListener("keydown", e => {
+  if (["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName)) return;
+  if (e.key === "Escape") {
+    document.querySelectorAll(".overlay:not(.hidden)").forEach(o => o.classList.add("hidden"));
+    return;
+  }
+  if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    const map = { stock:"stockQ", assigned:"assignedQ", all:"allQ", employees:"empQ", history:"histQ" };
+    const t   = document.querySelector(".tab.active")?.dataset.tab;
+    if (t && map[t]) document.getElementById(map[t])?.focus();
+    return;
+  }
+  if (e.key === "n" && !e.ctrlKey && !e.metaKey) {
+    const t = document.querySelector(".tab.active")?.dataset.tab;
+    if (t === "stock" || t === "all") document.getElementById("addAssetBtn")?.click();
+    else if (t === "employees") document.getElementById("addEmpBtn")?.click();
+    return;
+  }
 });
 </script>
 </body>
